@@ -1,0 +1,97 @@
+services:
+  mail:
+    image: bytemark/smtp
+    networks:
+      - internal
+    restart: unless-stopped
+
+  plausible_db:
+    # Plausible v2.0.0 was tested against PostgreSQL versions 12, 13, and 14
+    # https://github.com/plausible/analytics/blob/v2.0.0/.github/workflows/elixir.yml#L16
+    image: postgres:14-alpine
+    networks:
+      - internal
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    secrets:
+      - POSTGRES_PASSWORD
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+
+  plausible_events_db:
+    image: clickhouse/clickhouse-server:23.3.7.5-alpine
+    networks:
+      - internal
+    restart: unless-stopped
+    volumes:
+      - event-data:/var/lib/clickhouse
+      - ./clickhouse/clickhouse-config.xml:/etc/clickhouse-server/config.d/logging.xml:ro
+      - ./clickhouse/clickhouse-user-config.xml:/etc/clickhouse-server/users.d/logging.xml:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+
+  plausible:
+    image: plausible/analytics:v2.0
+    networks:
+      - caddy
+      - internal
+    restart: unless-stopped
+    volumes:
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    command: ["/with-expanded-env.sh", "sh", "-c", "sleep 10 && /entrypoint.sh db createdb && /entrypoint.sh db migrate && /entrypoint.sh run"]
+    depends_on:
+      - plausible_db
+      - plausible_events_db
+      - mail
+    secrets: [SMTP_PASSWORD, SECRET_KEY_BASE, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DATABASE_URL]
+    env_file:
+      - plausible-conf.env
+    environment:
+      - DATABASE_URL={{DOCKER-SECRET:DATABASE_URL}}
+      - SMTP_USER_PWD={{DOCKER-SECRET:SMTP_PASSWORD}}
+      - SECRET_KEY_BASE={{DOCKER-SECRET:SECRET_KEY_BASE}}
+      - GOOGLE_CLIENT_ID={{DOCKER-SECRET:GOOGLE_CLIENT_ID}}
+      - GOOGLE_CLIENT_SECRET={{DOCKER-SECRET:GOOGLE_CLIENT_SECRET}}
+    labels:
+      caddy: plausible.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 8000}}"
+      
+      flame.type: application
+      flame.name: Plausible
+      flame.url: https://plausible.ullrich.is
+      flame.icon: lock
+
+      com.centurylinklabs.watchtower.enable: true
+
+volumes:
+  db-data:
+    driver: local
+  event-data:
+    driver: local
+
+networks:
+  caddy:
+    external: true
+  internal:
+    internal: true
+
+secrets:
+  SMTP_PASSWORD:
+    file: ./secrets/SMTP_PASSWORD
+  SECRET_KEY_BASE:
+    file: ./secrets/SECRET_KEY_BASE
+  GOOGLE_CLIENT_ID:
+    file: ./secrets/GOOGLE_CLIENT_ID
+  GOOGLE_CLIENT_SECRET:
+    file: ./secrets/GOOGLE_CLIENT_SECRET
+  POSTGRES_PASSWORD:
+    file: ./secrets/POSTGRES_PASSWORD
+  DATABASE_URL:
+    file: ./secrets/DATABASE_URL
