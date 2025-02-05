@@ -1,0 +1,104 @@
+services:
+  authelia:
+    image: authelia/authelia:latest
+    user: 1001:1001
+    restart: unless-stopped
+    depends_on:
+      - database
+      - redis
+    volumes:
+      - ./config:/config
+    networks:
+      - caddy
+      - internal
+      - prometheus
+    secrets:
+      - JWT_SECRET
+      - REDIS_PASSWORD
+      - POSTGRES_PASSWORD
+      - SESSION_SECRET
+      - SMTP_PASSWORD
+      - STORAGE_ENCRYPTION_KEY
+      - users_database.yml
+    environment:
+      AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE: /run/secrets/JWT_SECRET
+      AUTHELIA_SESSION_SECRET_FILE: /run/secrets/SESSION_SECRET
+      AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE: /run/secrets/SMTP_PASSWORD
+      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: /run/secrets/STORAGE_ENCRYPTION_KEY
+      AUTHELIA_STORAGE_POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
+      AUTHELIA_SESSION_REDIS_PASSWORD_FILE: /run/secrets/REDIS_PASSWORD
+    labels:
+      caddy_0: auth.ullrich.is
+      caddy_0.reverse_proxy: "{{upstreams 9091}}"
+      # Snippet to secure external domains
+      caddy_1: (secure_external)
+      caddy_1.forward_auth: "{args[0]} https://auth.ullrich.is"
+      caddy_1.forward_auth.uri: /api/verify?rd=https://auth.ullrich.is
+      caddy_1.forward_auth.copy_headers: Remote-User Remote-Groups Remote-Name Remote-Email
+      caddy_1.forward_auth.header_up: Host {upstream_hostport}
+      # Snippet to secure internal domains
+      caddy_2: (secure)
+      caddy_2.forward_auth: "{args[0]} {{upstreams 9091}}"
+      caddy_2.forward_auth.uri: /api/verify?rd=https://auth.ullrich.is
+      caddy_2.forward_auth.copy_headers: Remote-User Remote-Groups Remote-Name Remote-Email
+
+      com.centurylinklabs.watchtower.enable: true
+
+  database:
+    image: postgres:15
+    user: 1001:1001
+    restart: unless-stopped
+    volumes:
+      - ./volumes/postgres:/var/lib/postgresql/data
+    networks:
+      - internal
+    secrets:
+      - POSTGRES_PASSWORD
+    environment:
+      POSTGRES_USER: authelia
+      POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+
+  redis:
+    image: redis:7
+    user: 1001:1001
+    restart: unless-stopped
+    secrets:
+      - REDIS_PASSWORD
+    command: [
+      "bash", "-c",
+      '
+       redis-server --save 60 1 --loglevel warning --requirepass "$$(cat /run/secrets/REDIS_PASSWORD)"
+      '
+    ]
+    volumes:
+      - ./volumes/redis:/data
+    networks:
+      - internal
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+
+networks:
+  caddy:
+    external: true
+  internal:
+    internal: true
+  prometheus:
+    external: true
+
+secrets:
+  JWT_SECRET:
+    file: ./secrets/JWT_SECRET
+  REDIS_PASSWORD:
+    file: ./secrets/REDIS_PASSWORD
+  SESSION_SECRET:
+    file: ./secrets/SESSION_SECRET
+  SMTP_PASSWORD:
+    file: ./secrets/SMTP_PASSWORD
+  STORAGE_ENCRYPTION_KEY:
+    file: ./secrets/STORAGE_ENCRYPTION_KEY
+  POSTGRES_PASSWORD:
+    file: ./secrets/POSTGRES_PASSWORD
+  users_database.yml:
+    file: ./secrets/users_database.yml

@@ -1,0 +1,54 @@
+services:
+  caddy:
+    hostname: caddy
+    user: 1001:114 # gid 114 is the one that has access to the docker socket
+    build:
+      context: builder
+      dockerfile: Dockerfile
+    secrets: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY']
+    environment:
+      - CADDY_INGRESS_NETWORKS=caddy
+      - ACME_AGREE=true
+      ## See `with-expanded-env.sh` for secret to env expansion
+      - AWS_ACCESS_KEY_ID={{DOCKER-SECRET:AWS_ACCESS_KEY_ID}}
+      - AWS_SECRET_ACCESS_KEY={{DOCKER-SECRET:AWS_SECRET_ACCESS_KEY}}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./volumes/caddy:/data
+      - ./volumes/ullrich.is:/ullrich.is
+      
+    restart: always
+    networks:
+      caddy:
+        aliases:
+          - caddy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 5s
+      timeout: 1s
+      retries: 3
+    labels:
+      caddy_0: ullrich.is
+      caddy_0.root: "* /ullrich.is"
+      caddy_0.file_server: ""
+      caddy_0.redir_0: /.well-known/webfinger https://social.ullrich.is{uri}
+      caddy_0.redir_1: /mailto mailto:hi@ullrich.is permanent
+      caddy_1: seidbereit.de
+      caddy_1.redir: https://ullrich.is{uri}
+      caddy_2: clever.dev
+      caddy_2.redir: https://ullrich.is{uri}
+
+## `caddy` is the network that other docker services will use to upstream
+## It needs to be created explicitly using `docker network create caddy`
+networks:
+  caddy:
+    external: true
+
+secrets:
+  AWS_ACCESS_KEY_ID:
+    file: ./secrets/AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY:
+    file: ./secrets/AWS_SECRET_ACCESS_KEY
