@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="channel_header">
+    <div class="messages_header"><div class="channel_title"> 
+      <h2 id="channel_name_container" class="channel_name_container">
+        <div id="active_channel_name_overlay" class="onboarding_overlay hidden"></div>
+        <span id="channel_name" class="channel_name">
+            <span id="channel_title">Search results for « {{ terms }} » in #{{ channel }}</span></span>
+      </h2>
+
+      <div id="channel_header_info">
+        <span id="channel_members_toggle_count" class="blue_hover ts_tip ts_tip_bottom ts_tip_leftish">{{ results|length }} results</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% for message in results %}
+<ts-message id="message_{{ message.id }}" class="message feature_fix_files first">
+
+  <div class="message_gutter">
+
+    <div class="message_icon">
+      <a class=" member_preview_link member_image thumb_36" style="background-image: url('{{ avatars[message.poster] }}')"></a>
+    </div>
+
+  </div>
+
+  <div class="message_content ">
+
+    <a class="message_sender member member_preview_link color_U03FXRM6H color_e7392d ">{{ message.poster }}</a>
+
+    <a class="timestamp ts_tip ts_tip_top ts_tip_float ts_tip_multiline ts_tip_delay_300 ts_tip_hidden">
+      <span class="ts_tip_tip"><span class="ts_tip_multiline_inner">{{ message.timestamp|date }}</span></span>
+    </a>
+
+    <span class="message_body">{{ message.message|safe }}</span>
+
+  </div>
+
+</ts-message>
+{% endfor %}
+
+{% endblock %}

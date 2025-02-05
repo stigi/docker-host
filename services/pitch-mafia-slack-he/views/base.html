@@ -1,0 +1,39 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>Slack HE — Dashboard</title>
+    <meta name="description" content="Dashboard for search and history">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="/static/img/favicon.ico">
+    {% block stylesheets %}
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/emojione/2.1.4/assets/css/emojione.min.css"/>
+    {% endblock %}
+</head>
+<body>
+
+{% block content %}
+{% endblock %}
+
+{% block script %}
+<script src="//cdn.jsdelivr.net/emojione/2.1.4/lib/js/emojione.min.js"></script>
+<script type="text/javascript">
+
+  function convert_emojis() {
+    var bodies = document.getElementsByTagName("ts-body");
+    for (var i = 0; i < bodies.length; i++) {
+        // Manage skin tones
+        var str = bodies[i].innerHTML;
+        str = str.replace(/:skin-tone-[0-9]:/gi, "");
+        bodies[i].innerHTML = emojione.toImage(str);
+    }
+  }
+
+  convert_emojis();
+
+ </script>
+{% endblock %}
+
+  </body>
+</html>

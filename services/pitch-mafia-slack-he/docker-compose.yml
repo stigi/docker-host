@@ -1,0 +1,19 @@
+services:
+  web:
+    build:
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - caddy
+    labels:
+      # Specific to caddy setup on ullrich.is
+      caddy: pitch-mafia.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 3975}}"
+    command: node index.js
+    volumes:
+      - .:/usr/app/
+      - /usr/app/node_modules
+
+networks:
+  caddy:
+    external: true
