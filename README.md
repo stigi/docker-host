@@ -4,6 +4,11 @@ This repository holds my personal self-hosted infra, based on a bunch of docker-
 
 ## Overview
 
+This repo is structured by categories of services:
+- `core` contains the basic services for reverse proxying, docker and authentication
+- `oservability` contains everything around grafana, prometheus and the likes
+- `services` contains all the other individual services
+
 ### Reverse Proxy setup
 
 All services are routed through [Caddy](https://caddyserver.com) as a reverse proxy. Services can configure themselves, by using docker labels. Caddy then recondigures itself when new services appear, using [caddy-docker-proxy](https://github.com/lucaslorentz/caddy-docker-proxy).
@@ -27,10 +32,32 @@ networks:
 
 ### Authentication
 
+Authentication is handled by [Authelia](https://www.authelia.com), and Caddy snippets are provided, making it easy to require authentication on a subdomain basis, like so:
+
+```yml
+services:
+  example:
+    ...
+    labels:
+      caddy: example.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 5005}}"
+      caddy.import: secure * # <-- The Caddy snippet in effect
+```
+
 ### Observability
 
 ## Other Container config
 
-## Volumes
+### Volumes
 
-## Secrets
+Volumes can either be declared using docker named volumes, or can be mounted. If opting into the later, it is recommended to keep those mountpoints inside the `volumes` directory, so they are git ignored, and don't make it into this repository.
+
+### Secrets
+
+Secrets are managed using [docker compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/). Each service defines a set of secrets that are stored in files inside it's `secrets` directory. They then are used directly as files (optimal scenario) or are expanded in the root processes environment using the `with-expanded-env.sh` script, inspired by [this gist](https://gist.github.com/bvis/b78c1e0841cfd2437f03e20c1ee059fe).
+
+I strive to document all secrets in the services Readme, so this repos setup is easy to follow.
+
+### Automatic Docker Image Updates
+
+I'm still experimenting with DIUN and Watchtower, trying to decide on one.
