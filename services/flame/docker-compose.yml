@@ -1,0 +1,26 @@
+services:
+  flame:
+    image: pawelmalak/flame
+    container_name: flame
+    volumes:
+      - ./volumes:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    secrets: [PASSWORD]
+    environment:
+      # used for /settings endpoint
+      - PASSWORD_FILE=/run/secrets/password
+    restart: unless-stopped
+    networks:
+      - caddy
+    labels:
+      caddy: flame.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 5005}}"
+      caddy.import: secure *
+
+secrets:
+  PASSWORD:
+    file: ./secrets/PASSWORD
+
+networks:
+  caddy:
+    external: true

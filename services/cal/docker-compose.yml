@@ -1,0 +1,65 @@
+services:
+  database:
+    image: postgres:16
+    restart: unless-stopped
+    volumes:
+      - database-data:/var/lib/postgresql/data/
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    secrets: [POSTGRES_PASSWORD]
+    environment:
+      POSTGRES_DB: a1811e86f410ea1716d366c07cc6ed42
+      POSTGRES_USER: cal_pg
+      POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+    networks:
+      - internal
+
+  calcom:
+    image: calcom/cal.com
+    restart: unless-stopped
+    networks:
+      - internal
+      - caddy
+    depends_on:
+      - database
+    env_file: .env
+    secrets: [CALENDSO_ENCRYPTION_KEY, DATABASE_URL, EMAIL_SERVER_PASSWORD, GOOGLE_API_CREDENTIALS, NEXTAUTH_SECRET, POSTGRES_PASSWORD, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET]
+    volumes:
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    command: ["/with-expanded-env.sh", "/calcom/scripts/start.sh"]
+    labels:
+      # Specific to caddy setup on ullrich.is
+      caddy: cal.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 3000}}"
+      flame.type: application
+      flame.name: cal
+      flame.url: https://cal.ullrich.is
+      com.centurylinklabs.watchtower.enable: true
+
+secrets:
+  CALENDSO_ENCRYPTION_KEY:
+    file: ./secrets/CALENDSO_ENCRYPTION_KEY
+  DATABASE_URL:
+    file: ./secrets/DATABASE_URL
+  EMAIL_SERVER_PASSWORD:
+    file: ./secrets/EMAIL_SERVER_PASSWORD
+  GOOGLE_API_CREDENTIALS:
+    file: ./secrets/GOOGLE_API_CREDENTIALS
+  NEXTAUTH_SECRET:
+    file: ./secrets/NEXTAUTH_SECRET
+  POSTGRES_PASSWORD:
+    file: ./secrets/POSTGRES_PASSWORD
+  ZOOM_CLIENT_ID:
+    file: ./secrets/ZOOM_CLIENT_ID
+  ZOOM_CLIENT_SECRET:
+    file: ./secrets/ZOOM_CLIENT_SECRET
+
+volumes:
+  database-data:
+
+networks:
+  internal:
+    external: false
+  caddy:
+    external: true

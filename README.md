@@ -2,6 +2,15 @@
 
 This repository holds my personal self-hosted infra, based on a bunch of docker-compose files.
 
+I consider this host my playground, even though I host my online identity on it. My personal SLA has a 99% uptime. Well sort of...
+
+## Hardware
+
+All these services are run on a single machine hosted by Hetzner. Here's the spec:
+- Intel(R) Core(TM) i7-2600 CPU @ 3.40GHz
+- 32 GB Ram (4x RAM 8192 MB DDR3)
+- 2x HDD SATA 3,0 TB
+
 ## Overview
 
 This repo is structured by categories of services:
@@ -46,6 +55,8 @@ services:
 
 ### Observability
 
+*wip*
+
 ## Other Container config
 
 ### Volumes
@@ -60,4 +71,11 @@ I strive to document all secrets in the services Readme, so this repos setup is 
 
 ### Automatic Docker Image Updates
 
+*wip*
+
 I'm still experimenting with DIUN and Watchtower, trying to decide on one.
+
+
+## Backup
+
+I run backups via [borgmatic](https://github.com/borgmatic-collective/borgmatic) to [BorgBase](https://www.borgbase.com). The config for this currently lives outside this repo
