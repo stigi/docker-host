@@ -1,0 +1,180 @@
+# https://github.com/mastodon/mastodon/blob/main/docker-compose.yml
+
+services:
+  web:
+    image: ghcr.io/mastodon/mastodon:latest
+    user: 991:1001
+    restart: unless-stopped
+    env_file: .env
+    secrets: [SECRET_KEY_BASE, OTP_SECRET, VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, DB_PASS, REDIS_PASSWORD, SMTP_PASSWORD, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY, ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT, ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY, OTEL_EXPORTER_OTLP_HEADERS]
+    networks:
+      - caddy
+      - internal_network
+    healthcheck:
+      # prettier-ignore
+      test: ['CMD-SHELL', 'wget -q --spider --proxy=off localhost:3000/health || exit 1']
+    # ports:
+    #   - '127.0.0.1:3000:3000'
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./volumes/system:/mastodon/public/system
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    command: "/with-expanded-env.sh bundle exec puma -C config/puma.rb"
+    labels:
+      caddy: social.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 3000}}"
+      caddy.route: /s3/*
+      # `0_uri` order matters, this must come first
+      caddy.route.0_uri: strip_prefix /s3
+      caddy.route.s3proxy.bucket: "ullrich-is-mastodon"
+      caddy.route.s3proxy.region: "eu-central-1"
+      flame.type: application
+      flame.name: mastodon
+      flame.url: https://social.ullrich.is
+      com.centurylinklabs.watchtower.enable: true
+
+  streaming:
+    image: ghcr.io/mastodon/mastodon-streaming:latest
+    user: 991:1001
+    restart: unless-stopped
+    env_file: .env
+    secrets: [SECRET_KEY_BASE, OTP_SECRET, VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, DB_PASS, REDIS_PASSWORD, SMTP_PASSWORD, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY, ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT, ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY, OTEL_EXPORTER_OTLP_HEADERS]
+    volumes:
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    command: "/with-expanded-env.sh node ./streaming"
+    networks:
+      - caddy
+      - internal_network
+    healthcheck:
+      # prettier-ignore
+      test: ['CMD-SHELL', 'wget -q --spider --proxy=off localhost:4000/api/v1/streaming/health || exit 1']
+    # ports:
+    #   - '127.0.0.1:4000:4000'
+    depends_on:
+      - db
+      - redis
+    labels:
+      caddy: social.ullrich.is
+      caddy.handle: /api/v1/streaming*
+      caddy.handle.reverse_proxy: "{{upstreams 4000}}"
+      com.centurylinklabs.watchtower.enable: true
+
+  sidekiq:
+    image: ghcr.io/mastodon/mastodon:latest
+    user: 991:1001
+    restart: unless-stopped
+    env_file: .env
+    secrets: [SECRET_KEY_BASE, OTP_SECRET, VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, DB_PASS, REDIS_PASSWORD, SMTP_PASSWORD, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY, ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT, ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY, OTEL_EXPORTER_OTLP_HEADERS]
+    volumes:
+      - ./volumes/system:/mastodon/public/system
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    command: "/with-expanded-env.sh bundle exec sidekiq"
+    networks:
+      - caddy
+      - internal_network
+    healthcheck:
+      test: ['CMD-SHELL', "ps aux | grep '[s]idekiq\ 6' || false"]
+    depends_on:
+      - db
+      - redis
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+
+# Internal DBs
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      # Authenticated via Caddy
+      # https://www.pgadmin.org/docs/pgadmin4/development/webserver.html
+      PGADMIN_CONFIG_SERVER_MODE: 'True'
+      PGADMIN_CONFIG_AUTHENTICATION_SOURCES: "['webserver']"
+      PGADMIN_CONFIG_WEBSERVER_AUTO_CREATE_USER: 'True'
+      PGADMIN_CONFIG_WEBSERVER_REMOTE_USER: "'HTTP_X_FORWARDED_USER'"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+      PGADMIN_DEFAULT_EMAIL: 'disabled@ullrich.is'
+      PGADMIN_DEFAULT_PASSWORD: 'secret'
+      PGADMIN_DISABLE_POSTFIX: 'True'
+      PGADMIN_CONFIG_SHOW_GRAVATAR_IMAGE: 'False'
+    volumes:
+      - ./volumes/pgadmin:/var/lib/pgadmin
+    networks:
+      - internal_network
+      - caddy
+    labels:
+      caddy: social.ullrich.is
+      caddy.redir: /pga /pga/
+      caddy.route: /pga/*
+      caddy.route.0_forward_auth: https://auth.ullrich.is
+      caddy.route.0_forward_auth.copy_headers: Remote-Email>X-Forwarded-User
+      caddy.route.0_forward_auth.header_up: Host {upstream_hostport}
+      caddy.route.0_forward_auth.uri: /api/verify?rd=https://auth.ullrich.is
+      caddy.route.1_uri: strip_prefix /pga
+      caddy.route.2_reverse_proxy: "{{upstreams 80}}"
+      caddy.route.2_reverse_proxy.header_up: +X-Script-Name /pga
+      com.centurylinklabs.watchtower.enable: true
+
+  db:
+    restart: unless-stopped
+    image: postgres:14-alpine
+    shm_size: 256mb
+    networks:
+      - internal_network
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres']
+    volumes:
+      - ./volumes/postgresql:/var/lib/postgresql/data
+    environment:
+      - 'POSTGRES_HOST_AUTH_METHOD=trust'
+    command: postgres -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+
+
+  redis:
+    restart: unless-stopped
+    image: redis:7-alpine
+    networks:
+      - internal_network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+    volumes:
+      - ./volumes/redis:/data
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+
+networks:
+  caddy:
+    external: true
+  internal_network:
+    internal: true
+
+secrets:
+  SECRET_KEY_BASE:
+    file: ./secrets/SECRET_KEY_BASE
+  OTP_SECRET:
+    file: ./secrets/OTP_SECRET
+  VAPID_PRIVATE_KEY:
+    file: ./secrets/VAPID_PRIVATE_KEY
+  VAPID_PUBLIC_KEY:
+    file: ./secrets/VAPID_PUBLIC_KEY
+  DB_PASS:
+    file: ./secrets/DB_PASS
+  REDIS_PASSWORD:
+    file: ./secrets/REDIS_PASSWORD
+  SMTP_PASSWORD:
+    file: ./secrets/SMTP_PASSWORD
+  AWS_ACCESS_KEY_ID:
+    file: ./secrets/AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY:
+    file: ./secrets/AWS_SECRET_ACCESS_KEY
+  ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY:
+    file: ./secrets/ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY
+  ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT:
+    file: ./secrets/ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT
+  ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY:
+    file: ./secrets/ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY
+  OTEL_EXPORTER_OTLP_HEADERS:
+    file: ./secrets/OTEL_EXPORTER_OTLP_HEADERS
