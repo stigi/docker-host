@@ -1,3 +1,8 @@
-## Ignored per convention. See Readme.md
-secrets
+# Ignored per convention. See Readme.md
 volumes
+## Using wildcards to make the exclsion for git secrets work
+**/secrets/*
+
+# git-secrets
+.gitsecret/keys/random_seed
+!*.secret
