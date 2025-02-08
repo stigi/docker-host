@@ -1,0 +1,41 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    user: 1000:1001
+    restart: always
+    networks:
+      - caddy
+    secrets: [N8N_ENCRYPTION_KEY]
+    environment:
+      - N8N_HOST=n8n.ullrich.is
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_HIRING_BANNER_ENABLED=false
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_ENCRYPTION_KEY={{DOCKER-SECRET:N8N_ENCRYPTION_KEY}}
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://n8n.ullrich.is/
+      - GENERIC_TIMEZONE=Europe/Berlin
+    volumes:
+      - n8n_storage:/home/node/.n8n
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    entrypoint: ["/with-expanded-env.sh", "tini", "--", "/docker-entrypoint.sh"]
+    labels:
+      caddy_0: n8n.ullrich.is
+      caddy_0.reverse_proxy: "{{upstreams 5678}}"
+      caddy_0.redir_0: /legal/terms https://n8n.io/legal/#terms
+      caddy_0.redir_1: /legal/privacy https://n8n.io/legal/#privacy
+      flame.type: application
+      flame.name: n8n
+      flame.url: https://n8n.ullrich.is
+
+volumes:
+  n8n_storage:
+
+networks:
+  caddy:
+    external: true
+
+secrets:
+  N8N_ENCRYPTION_KEY:
+    file: ./secrets/N8N_ENCRYPTION_KEY

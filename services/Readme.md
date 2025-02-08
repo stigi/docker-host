@@ -27,3 +27,7 @@ Selfhosted [Cobalt](https://cobalt.tools) API, so I can use my own cookies, etc.
 ## Gramps
 
 My families ancestry/genealogy database. [Gramps](https://www.grampsweb.org/) on the web, synced with desktop [Gramps](https://gramps-project.org). Glorious!
+
+## N8N
+
+[N8N](https://n8n.io) is like Zapier at home.
