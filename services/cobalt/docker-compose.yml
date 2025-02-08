@@ -1,0 +1,25 @@
+services:
+  cobalt-api:
+    image: ghcr.io/imputnet/cobalt:latest
+    restart: unless-stopped
+    secrets: [KEYS]
+    environment:
+      API_URL: "https://cobalt.ullrich.is"
+      API_KEY_URL: "file:///run/secrets/KEYS"
+      API_AUTH_REQUIRED: 1
+    networks:
+      - caddy
+    labels:
+      caddy: cobalt.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 9000}}"
+      flame.type: application
+      flame.name: cobalt
+      flame.url: https://cobalt.ullrich.is
+
+networks:
+  caddy:
+    external: true
+
+secrets:
+  KEYS:
+    file: ./secrets/keys.json
