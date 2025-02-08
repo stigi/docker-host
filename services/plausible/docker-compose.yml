@@ -1,14 +1,14 @@
 services:
-  mail:
-    image: bytemark/smtp
-    networks:
-      - internal
-    restart: unless-stopped
+  # db_upgrade:
+  #   image: pgautoupgrade/pgautoupgrade:16-alpine
+  #   volumes:
+  #     - db-data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_PASSWORD: [redacted]
+  #     PGAUTO_ONESHOT: yes
 
   plausible_db:
-    # Plausible v2.0.0 was tested against PostgreSQL versions 12, 13, and 14
-    # https://github.com/plausible/analytics/blob/v2.0.0/.github/workflows/elixir.yml#L16
-    image: postgres:14-alpine
+    image: postgres:16-alpine
     networks:
       - internal
     restart: unless-stopped
@@ -18,41 +18,58 @@ services:
       - POSTGRES_PASSWORD
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      start_period: 1m
     labels:
       com.centurylinklabs.watchtower.enable: true
 
   plausible_events_db:
-    image: clickhouse/clickhouse-server:23.3.7.5-alpine
+    image: clickhouse/clickhouse-server:24.3.3.102-alpine
+    user: 1001:1001
     networks:
       - internal
     restart: unless-stopped
     volumes:
       - event-data:/var/lib/clickhouse
-      - ./clickhouse/clickhouse-config.xml:/etc/clickhouse-server/config.d/logging.xml:ro
-      - ./clickhouse/clickhouse-user-config.xml:/etc/clickhouse-server/users.d/logging.xml:ro
+      - event-logs:/var/log/clickhouse-server
+      - ./clickhouse/logs.xml:/etc/clickhouse-server/config.d/logs.xml:ro
+      # This makes ClickHouse bind to IPv4 only, since Docker doesn't enable IPv6 in bridge networks by default.
+      # Fixes "Listen [::]:9000 failed: Address family for hostname not supported" warnings.
+      - ./clickhouse/ipv4-only.xml:/etc/clickhouse-server/config.d/ipv4-only.xml:ro
+      # This makes ClickHouse consume less resources, which is useful for small setups.
+      # https://clickhouse.com/docs/en/operations/tips#using-less-than-16gb-of-ram
+      - ./clickhouse/low-resources.xml:/etc/clickhouse-server/config.d/low-resources.xml:ro
     ulimits:
       nofile:
         soft: 262144
         hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O - http://127.0.0.1:8123/ping || exit 1"]
+      start_period: 1m
     labels:
       com.centurylinklabs.watchtower.enable: true
 
   plausible:
-    image: plausible/analytics:v2.0
+    image: ghcr.io/plausible/community-edition:v2.1.5
+    ## Plausible needs to run as 1000 which is `plausibleuser` internally, and needed to change some files on launch time
+    user: 1000:1001
     networks:
       - caddy
       - internal
     restart: unless-stopped
     volumes:
+      - plausible-data:/var/lib/plausible
       - ./with-expanded-env.sh:/with-expanded-env.sh
-    command: ["/with-expanded-env.sh", "sh", "-c", "sleep 10 && /entrypoint.sh db createdb && /entrypoint.sh db migrate && /entrypoint.sh run"]
-    depends_on:
-      - plausible_db
-      - plausible_events_db
-      - mail
     secrets: [SMTP_PASSWORD, SECRET_KEY_BASE, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DATABASE_URL]
     env_file:
       - plausible-conf.env
+    command: ["/with-expanded-env.sh", "sh", "-c", "/entrypoint.sh db createdb && /entrypoint.sh db migrate && /entrypoint.sh run"]
+    depends_on:
+      plausible_db:
+        condition: service_healthy
+      plausible_events_db:
+        condition: service_healthy
     environment:
       - DATABASE_URL={{DOCKER-SECRET:DATABASE_URL}}
       - SMTP_USER_PWD={{DOCKER-SECRET:SMTP_PASSWORD}}
@@ -74,6 +91,10 @@ volumes:
   db-data:
     driver: local
   event-data:
+    driver: local
+  event-logs:
+    driver: local
+  plausible-data:
     driver: local
 
 networks:
