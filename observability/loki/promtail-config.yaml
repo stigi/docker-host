@@ -1,0 +1,81 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          __path__: /var/log/*log
+
+  - job_name: fail2ban
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          __path__: /var/log/fail2ban.log
+          instance: zebra
+          app: fail2ban
+    pipeline_stages:
+      - multiline:
+          firstline: '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
+      - regex:
+          expression: >-
+            ^(?s)(?P<time>\S+? \S+?)
+            (fail2ban\.)(?P<component>\S+)\s*
+            \[(?P<pid>\S+)\]:
+            (?P<priority>\S+)\s*
+            (?P<message>.*?)$
+      - timestamp:
+          source: time
+          format: "2006-01-02 15:04:05,000"
+      - labels:
+          component:
+          priority:
+      - output:
+          source: message
+      # Extract jail from message, if present
+      - match:
+          # Note: backticks do not work in promtail, so weird escaping is needed
+          selector: '{job="fail2ban"} |~ "\\\\[\\\\S+\\\\] .*"'
+          stages:
+            - regex:
+                expression: '(\[(?P<jail>\S+)\] )?(?P<message>.*?)$'
+            - labels:
+                jail:
+            - output:
+                source: message
+      - labeldrop:
+          - filename
+
+
+  - job_name: ufw
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          __path__: /var/log/ufw.log
+          instance: zebra
+          app: ufw
+    pipeline_stages:
+      - regex:
+          expression: '^(?s)(?P<time>\S+? \S+? \S+?) (?P<hostname>\S+?) kernel: \[(?P<kerneltime>.*?)\] \[(?P<ufwaction>.*?)\] (?P<message>.*?)$'
+      - timestamp:
+          source: time
+          format: "2006-01-02 15:04:05,000"
+      - labels:
+          hostname:
+          ufwaction:
+      - output:
+          source: message
+      - labeldrop:
+          - filename

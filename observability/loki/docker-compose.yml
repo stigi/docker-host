@@ -1,0 +1,38 @@
+services:
+  loki:
+    image: grafana/loki:latest
+    restart: always
+    networks:
+      - internal
+      - grafana
+      - caddy
+    ports:
+      - 3100:3100
+    volumes:
+      - ./loki-config.yaml:/etc/loki-config.yaml
+      - loki_data:/tmp/loki
+    command: -config.file=/etc/loki-config.yaml
+    logging:
+      options:
+        mode: non-blocking
+
+  promtail:
+    image: grafana/promtail:latest
+    restart: unless-stopped
+    networks:
+      - internal
+    volumes:
+      - /var/log:/var/log
+      - ./promtail-config.yaml:/etc/promtail-config.yaml
+    command: -config.file=/etc/promtail-config.yaml
+
+networks:
+  internal:
+    internal: true
+  grafana:
+    external: true
+  caddy:
+    external: true
+
+volumes:
+  loki_data:

@@ -1,0 +1,59 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - internal
+      - prometheus
+      - caddy
+    labels:
+      caddy: prometheus.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 9090}}"
+      caddy.import: secure *
+      caddy_1: :2018
+      caddy_1.metrics:
+      flame.type: application
+      flame.name: Prometheus
+      flame.url: https://prometheus.ullrich.is
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - /:/host:ro,rslave
+    networks:
+      - internal
+    command: 
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc' 
+      - '--path.sysfs=/host/sys'
+      - --collector.filesystem.ignored-mount-points
+      - "^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)"
+  
+  iptables-exporter:
+    image: madron/iptables-exporter
+    restart: unless-stopped
+    command: iptables-exporter --port 9119
+    networks:
+      - internal
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - DAC_READ_SEARCH
+
+volumes:
+  prometheus-data:
+
+networks:
+  caddy:
+    external: true
+  internal:
+    internal: true
+  prometheus:
+    external: true
