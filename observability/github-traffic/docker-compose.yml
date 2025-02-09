@@ -1,0 +1,23 @@
+services:
+  github-traffic:
+    image: 'ghcr.io/grafana/github-traffic'
+    user: 1001:1001
+    secrets: [GITHUB_TOKEN, ORG_NAME]
+    volumes:
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    command: [ "/with-expanded-env.sh", "python3", "github-traffic.py"]
+    networks:
+      - prometheus
+    env_file:
+      - .env
+    restart: unless-stopped
+
+networks:
+  prometheus:
+    external: true
+
+secrets:
+  GITHUB_TOKEN:
+    file: ./secrets/GITHUB_TOKEN
+  ORG_NAME:
+    file: ./secrets/ORG_NAME
