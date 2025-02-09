@@ -1,0 +1,86 @@
+services:
+
+  ghost:
+    image: ghost:5-alpine
+    user: 1001:1001
+    restart: unless-stopped
+    networks:
+      - caddy
+      - internal_network
+    labels:
+      caddy_1: new.ullrich.is, new.clever.dev
+      caddy_1.reverse_proxy: "{{upstreams 2368}}"
+      caddy_2: www.ullrich.is, www.clever.dev
+      caddy_2.redir: https://{labels.1}.{labels.0}{uri}
+
+      caddy_3: ghost.ullrich.is
+      caddy_3.reverse_proxy: "{{upstreams 2368}}"
+      caddy_3.redir: / /ghost/
+      caddy_3.route: /ghost/*
+      caddy_3.import: secure *
+
+      flame.type: application
+      flame.name: Ghost Admin
+      flame.url: https://ghost.ullrich.is
+      flame.icon: post
+    depends_on:
+      db:
+        condition: service_healthy
+    secrets: [SMTP_PASSWORD, MYSQL_PASSWORD]
+    environment:
+      database__client: mysql
+      database__connection__host: db
+      database__connection__user: ${MYSQL_USER}
+      database__connection__password: '{{DOCKER-SECRET:MYSQL_PASSWORD}}'
+      database__connection__database: ${MYSQL_DB}
+      server__port: 2368
+      url: https://new.ullrich.is
+      admin__url: https://ghost.ullrich.is
+      main__transport: SMTP
+      mail__from: Ghost <no-reply@ullrich.is>
+      mail__options__service: Fastmail
+      mail__options__host: smtp.fastmail.com
+      mail__options__port: 587
+      mail__options__auth__user: ullrich@ullrich.is
+      mail__options__auth__password: '{{DOCKER-SECRET:SMTP_PASSWORD}}'
+    volumes:
+      - ./volumes/data:/var/lib/ghost/content
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    command: ["/with-expanded-env.sh", "node", "current/index.js"]
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    networks:
+      - internal_network
+    secrets: [MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD]
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD_FILE: /run/secrets/MYSQL_PASSWORD
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/MYSQL_ROOT_PASSWORD
+    volumes:
+      - db:/var/lib/mysql
+      - ./db-init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 3s
+      timeout: 1s
+      retries: 10
+
+networks:
+  caddy:
+    external: true
+  internal_network:
+    internal: true
+
+volumes:
+  db:
+
+secrets:
+  SMTP_PASSWORD:
+    file: ./secrets/SMTP_PASSWORD
+  MYSQL_PASSWORD:
+    file: ./secrets/MYSQL_PASSWORD
+  MYSQL_ROOT_PASSWORD:
+    file: ./secrets/MYSQL_ROOT_PASSWORD
