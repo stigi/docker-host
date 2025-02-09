@@ -11,6 +11,24 @@ All these services are run on a single machine hosted by Hetzner. Here's the spe
 - 32 GB Ram (4x RAM 8192 MB DDR3)
 - 2x HDD SATA 3,0 TB
 
+## Security
+
+Docker is known to punch holes through ubuntus ufw firewall. Any port that is bound by docker will not be blocked, even when denying it via `ufw deny`. This is a known topic, and a few solutions exist out there. My preferred one is [ufw-docker](https://github.com/chaifeng/ufw-docker?tab=readme-ov-file#ufw-docker-util) that is easy and simple to set up.
+
+```shell
+$ sudo wget -O /usr/local/bin/ufw-docker https://github.com/chaifeng/ufw-docker/raw/master/ufw-docker
+$ sudo chmod +x /usr/local/bin/ufw-docker
+$ ufw-docker instal
+```
+
+From here on out you will need to explicitly expose ports in ufw, i.e. the HTTP(S) ports that Caddy serves.
+
+```shell
+$ sudo ufw allow 80
+$ sudo ufw allow 443
+$ sudo ufw reload
+```
+
 ## Overview
 
 This repo is structured by categories of services:
@@ -79,3 +97,14 @@ I'm still experimenting with DIUN and Watchtower, trying to decide on one.
 ## Backup
 
 I run backups via [borgmatic](https://github.com/borgmatic-collective/borgmatic) to [BorgBase](https://www.borgbase.com). The config for this currently lives outside this repo
+
+
+# Handy scripts
+
+## Recreate all docker compose containers in all subdirectories
+
+This helped me a couple of times, i.e. when changing the default log options.
+
+```
+find . -maxdepth 1 -type d \( ! -name . \) -exec bash -c "cd '{}' && docker compose up -d --force-recreate" \;
+```
