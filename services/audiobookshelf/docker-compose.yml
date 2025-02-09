@@ -1,0 +1,23 @@
+services:
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    user: 1001:1001
+    restart: unless-stopped
+    volumes:
+      - ./volumes/audiobooks:/audiobooks
+      - ./volumes/podcasts:/podcasts
+      - ./volumes/metadata:/metadata
+      - ./volumes/config:/config
+    networks:
+      - caddy
+    labels:
+      caddy: audioshelf.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 80}}"
+      flame.type: application
+      flame.name: audio bookshelf
+      flame.url: https://audioshelf.ullrich.is
+      com.centurylinklabs.watchtower.enable: true
+
+networks:
+  caddy:
+    external: true
