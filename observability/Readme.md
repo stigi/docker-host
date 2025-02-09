@@ -38,3 +38,7 @@ ufw allow from any to 172.17.0.1 port 3100 proto tcp
 [Prometheus](https://prometheus.io) collects metrics from a set of defined metrics endpoints.
 
 I've setup a dedicated `prometheus` network that any container can join from which metrics are to be collected.
+
+## Grafana
+
+[Grafana](https://grafana.com) is where all of the observability comes together. Here you can add the loki and prometheu integrations, and use them to build the dashboards for whatever you are interested in.

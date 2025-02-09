@@ -1,0 +1,29 @@
+services:
+  grafana:
+    image: grafana/grafana:latest
+    restart: always
+    volumes:
+      - ./grafana.ini:/etc/grafana/grafana.ini
+      - 'grafana_storage:/var/lib/grafana'
+    networks:
+      - caddy
+      - grafana
+      - prometheus
+    labels:
+      caddy: grafana.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 3000}}"
+      caddy.import: secure *
+      flame.type: application
+      flame.name: Grafana
+      flame.url: https://grafana.ullrich.is
+      
+volumes:
+  grafana_storage: {}
+
+networks:
+  caddy:
+    external: true
+  grafana:
+    external: true
+  prometheus:
+    external: true
