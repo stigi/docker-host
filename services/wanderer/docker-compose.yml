@@ -1,0 +1,119 @@
+x-common-env: &cenv
+  MEILI_URL: http://search:7700
+  MEILI_MASTER_KEY: "{{DOCKER-SECRET:MEILI_MASTER_KEY}}"
+
+services:
+  search:
+    container_name: wanderer-search
+    image: getmeili/meilisearch:v1.11.3
+    # user: 1001:1001 # does not work -> permission problems /shrug
+    environment:
+      <<: *cenv
+      MEILI_NO_ANALYTICS: true
+      MEILI_LOG_LEVEL: WARN
+    secrets: [MEILI_MASTER_KEY]
+    networks:
+      - internal
+      - caddy
+    volumes:
+      - ./volumes/meili:/meili_data/data.ms
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    command: ["/with-expanded-env.sh", "/meilisearch"]
+    restart: unless-stopped
+    healthcheck:
+      test: curl --fail http://localhost:7700/health || exit 1
+      interval: 15s
+      retries: 10
+      start_period: 20s
+      timeout: 10s
+    labels:
+      caddy: wanderer-search.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 7700}}"
+      caddy.import: secure *
+
+  db:
+    container_name: wanderer-db
+    image: flomp/wanderer-db
+    user: 1001:1001
+    depends_on:
+      search:
+        condition: service_healthy
+    environment:
+      <<: *cenv
+      POCKETBASE_ENCRYPTION_KEY: "{{DOCKER-SECRET:POCKETBASE_ENCRYPTION_KEY}}"
+    secrets: [MEILI_MASTER_KEY, POCKETBASE_ENCRYPTION_KEY]
+    networks:
+      - internal
+      - caddy
+    restart: unless-stopped
+    volumes:
+      - ./volumes/pocketbase:/pb_data
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    entrypoint: ["/with-expanded-env.sh", "/pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/pb_data"]
+    labels:
+      caddy: wanderer-admin.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 8090}}"
+      caddy.import: secure *
+
+  web:
+    container_name: wanderer-web
+    image: flomp/wanderer-web
+    # user: 1001:1001 # crond needs `root`
+    depends_on:
+      search:
+        condition: service_healthy
+      db:
+        condition: service_started
+    environment:
+      <<: *cenv
+      ORIGIN: https://wanderer.ullrich.is
+      BODY_SIZE_LIMIT: Infinity
+      PUBLIC_POCKETBASE_URL: http://db:8090
+      PUBLIC_DISABLE_SIGNUP: true
+      UPLOAD_FOLDER: /app/uploads
+      UPLOAD_USER: "{{DOCKER-SECRET:UPLOAD_USER}}"
+      UPLOAD_PASSWORD: "{{DOCKER-SECRET:UPLOAD_PASSWORD}}"
+      PUBLIC_VALHALLA_URL: https://valhalla1.openstreetmap.de
+      PUBLIC_NOMINATIM_URL: https://nominatim.openstreetmap.org
+    secrets: [MEILI_MASTER_KEY]
+    volumes:
+      - ./volumes/uploads:/app/uploads
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    command: ["/with-expanded-env.sh", "sh -c 'crond && cd /app && node build'"]
+    networks:
+      - internal
+      - caddy
+    labels:
+      caddy: wanderer.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 3000}}"
+    restart: unless-stopped
+  # valhalla:
+  #   image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+  #   ports:
+  #     - "8002:8002"
+  #   volumes:
+  #     - ./data/valhalla:/custom_files
+  #   environment:
+  #     - tile_urls=https://download.geofabrik.de/europe/germany/bayern/oberbayern-latest.osm.pbf
+  #     - use_tiles_ignore_pbf=True
+  #     - force_rebuild=False
+  #     - force_rebuild_elevation=False
+  #     - build_elevation=True
+  #     - build_admins=True
+  #     - build_time_zones=True
+
+networks:
+  caddy:
+    external: true
+  internal:
+    internal: true
+
+secrets:
+  MEILI_MASTER_KEY:
+    file: ./secrets/MEILI_MASTER_KEY
+  POCKETBASE_ENCRYPTION_KEY:
+    file: ./secrets/POCKETBASE_ENCRYPTION_KEY
+  UPLOAD_USER:
+    file: ./secrets/UPLOAD_USER
+  UPLOAD_PASSWORD:
+    file: ./secrets/UPLOAD_PASSWORD
