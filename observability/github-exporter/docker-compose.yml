@@ -1,0 +1,21 @@
+services:
+  github-exporter:
+    image: githubexporter/github-exporter:latest
+    user: 1001:1001
+    secrets: [GITHUB_TOKEN]
+    volumes:
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    environment:
+      - GITHUB_TOKEN_FILE=/run/secrets/GITHUB_TOKEN
+      - ORGS=magicbell
+    networks:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  prometheus:
+    external: true
+
+secrets:
+  GITHUB_TOKEN:
+    file: ./secrets/GITHUB_TOKEN
