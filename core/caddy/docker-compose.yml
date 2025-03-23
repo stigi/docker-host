@@ -40,6 +40,8 @@ services:
       caddy_1.redir: https://ullrich.is{uri}
       caddy_2: clever.dev
       caddy_2.redir: https://ullrich.is{uri}
+      caddy_3: www.ullrich.is, www.clever.dev, www.seidbereit.de
+      caddy_3.redir: https://{labels.1}.{labels.0}{uri}
 
 ## `caddy` is the network that other docker services will use to upstream
 ## It needs to be created explicitly using `docker network create caddy`
