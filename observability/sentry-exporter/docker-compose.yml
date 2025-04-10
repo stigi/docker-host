@@ -1,0 +1,28 @@
+services:
+  sentry-exporter:
+    image: italux/sentry-prometheus-exporter
+    user: 1001:1001
+    secrets: [SENTRY_AUTH_TOKEN, SENTRY_EXPORTER_ORG, SENTRY_EXPORTER_PROJECTS]
+    volumes:
+      - ./with-expanded-env.sh:/with-expanded-env.sh
+    environment:
+      - SENTRY_BASE_URL=https://sentry.io/api/0/
+      - SENTRY_EXPORTER_ORG={{DOCKER-SECRET:SENTRY_EXPORTER_ORG}}
+      - SENTRY_AUTH_TOKEN={{DOCKER-SECRET:SENTRY_AUTH_TOKEN}}
+      - SENTRY_EXPORTER_PROJECTS={{DOCKER-SECRET:SENTRY_EXPORTER_PROJECTS}}
+    command: [ "/with-expanded-env.sh", "gunicorn", "-w", "4", "-b", ":9790", "--timeout", "600", "exporter:app" ]
+    networks:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  prometheus:
+    external: true
+
+secrets:
+  SENTRY_AUTH_TOKEN:
+    file: ./secrets/SENTRY_AUTH_TOKEN
+  SENTRY_EXPORTER_ORG:
+    file: ./secrets/SENTRY_EXPORTER_ORG
+  SENTRY_EXPORTER_PROJECTS:
+    file: ./secrets/SENTRY_EXPORTER_PROJECTS
