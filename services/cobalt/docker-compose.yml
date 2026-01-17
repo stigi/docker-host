@@ -1,6 +1,7 @@
 services:
   cobalt-api:
     image: ghcr.io/imputnet/cobalt:latest
+    user: 1001:1001
     restart: unless-stopped
     secrets: [KEYS]
     environment:
