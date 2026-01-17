@@ -6,3 +6,6 @@ volumes
 # git-secrets
 .gitsecret/keys/random_seed
 !*.secret
+
+# ingore testing
+testing
