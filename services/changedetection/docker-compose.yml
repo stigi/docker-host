@@ -1,0 +1,40 @@
+services:
+  changedetection:
+    image: ghcr.io/dgtlmoon/changedetection.io:latest
+    container_name: changedetection
+    restart: unless-stopped
+    depends_on:
+      - browserless-chrome
+    environment:
+      - BASE_URL=https://changedetection.ullrich.is
+      - PLAYWRIGHT_DRIVER_URL=ws://browserless-chrome:3000/chrome?launch={"defaultViewport":{"height":720,"width":1280},"headless":false,"stealth":true}&blockAds=true
+    volumes:
+      - ./volumes/data:/datastore
+    networks:
+      - caddy
+      - internal
+      - ntfy
+    labels:
+      caddy: changedetection.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 5000}}"
+      caddy.import: secure *
+      flame.type: application
+      flame.name: changedetection
+      flame.url: https://changedetection.ullrich.is
+
+  browserless-chrome:
+    image: ghcr.io/browserless/chrome:latest
+    container_name: changedetection-browserless-chrome
+    restart: unless-stopped
+    networks:
+      - internal
+      - egress
+
+networks:
+  caddy:
+    external: true
+  internal:
+    internal: true
+  egress: {}
+  ntfy:
+    external: true
