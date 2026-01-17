@@ -1,17 +1,30 @@
 services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: always
+    networks:
+      - internal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      CONTAINERS: 1
+      EVENTS: 1
+      INFO: 1
+
   flame:
     image: pawelmalak/flame
     container_name: flame
     volumes:
       - ./volumes:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock
     secrets: [PASSWORD]
     environment:
       # used for /settings endpoint
-      - PASSWORD_FILE=/run/secrets/password
-    restart: unless-stopped
+      - PASSWORD_FILE=/run/secrets/PASSWORD
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
+    restart: always
     networks:
       - caddy
+      - internal
     labels:
       caddy: flame.ullrich.is
       caddy.reverse_proxy: "{{upstreams 5005}}"
@@ -24,3 +37,5 @@ secrets:
 networks:
   caddy:
     external: true
+  internal:
+    internal: true

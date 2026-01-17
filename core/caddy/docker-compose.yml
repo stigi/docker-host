@@ -1,4 +1,17 @@
 services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    networks:
+      - internal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      CONTAINERS: 1
+      EVENTS: 1
+      INFO: 1
+      NETWORKS: 1
+
   caddy:
     hostname: caddy
     user: 1001:114 # gid 114 is the one that has access to the docker socket
@@ -7,6 +20,7 @@ services:
       dockerfile: Dockerfile
     secrets: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY']
     environment:
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
       - CADDY_INGRESS_NETWORKS=caddy
       - ACME_AGREE=true
       ## See `with-expanded-env.sh` for secret to env expansion
@@ -16,7 +30,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ./volumes/config:/config
       - ./volumes/caddy:/data
       - ./volumes/ullrich.is:/ullrich.is
       
@@ -25,6 +39,7 @@ services:
       caddy:
         aliases:
           - caddy
+      internal:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 5s
@@ -48,6 +63,8 @@ services:
 networks:
   caddy:
     external: true
+  internal:
+    internal: true
 
 secrets:
   AWS_ACCESS_KEY_ID:
