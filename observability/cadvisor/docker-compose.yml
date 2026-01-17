@@ -1,14 +1,30 @@
 services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    networks:
+      - internal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      CONTAINERS: 1
+      EVENTS: 1
+      INFO: 1
+      IMAGES: 1
+
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
     restart: unless-stopped
+    command:
+      - --docker=tcp://docker-socket-proxy:2375
+      - --docker_only=true
     networks:
       - caddy
       - prometheus
+      - internal
     volumes:
       - /:/rootfs:ro
-      - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
     labels:
@@ -24,3 +40,5 @@ networks:
     external: true
   prometheus:
     external: true
+  internal:
+    internal: true
