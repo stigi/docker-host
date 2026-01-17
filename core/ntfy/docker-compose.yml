@@ -1,0 +1,34 @@
+services:
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    restart: unless-stopped
+    environment:
+      - NTFY_BASE_URL=https://ntfy.ullrich.is
+      - NTFY_CACHE_FILE=/var/cache/ntfy/cache.db
+      - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
+      - NTFY_AUTH_DEFAULT_ACCESS=deny-all
+      - NTFY_BEHIND_PROXY=true
+      - NTFY_ENABLE_LOGIN=true
+    command: ["serve"]
+    volumes:
+      - ./volumes/cache:/var/cache/ntfy
+      - ./volumes/data:/var/lib/ntfy
+    networks:
+      - caddy
+      - internal
+      - ntfy
+    labels:
+      caddy: ntfy.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 80}}"
+      flame.type: application
+      flame.name: ntfy
+      flame.url: https://ntfy.ullrich.is
+
+networks:
+  caddy:
+    external: true
+  internal:
+    internal: true
+  ntfy:
+    external: true
