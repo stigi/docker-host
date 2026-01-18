@@ -18,18 +18,22 @@ env_secret_debug() {
 # XYZ_DB_PASSWORD={{DOCKER-SECRET:my-db.secret}}
 env_secret_expand() {
   var="$1"
-  eval val=\$"$var"
-  if secret_name=$(expr "$val" : "{{DOCKER-SECRET:\([^}]\+\)}}$"); then
-    secret="${ENV_SECRETS_DIR}/${secret_name}"
-    env_secret_debug "Secret file for $var: $secret"
-    if [ -f "$secret" ]; then
-      val=$(cat "${secret}")
-      export "$var"="$val"
-      env_secret_debug "Expanded variable: $var=$val"
-    else
-      env_secret_debug "Secret file does not exist! $secret"
-    fi
-  fi
+  val=$(printenv "$var" 2>/dev/null || true)
+  case "$val" in
+    "{{DOCKER-SECRET:"*"}}")
+      secret_name=${val#\{\{DOCKER-SECRET:}
+      secret_name=${secret_name%\}\}}
+      secret="${ENV_SECRETS_DIR}/${secret_name}"
+      env_secret_debug "Secret file for $var: $secret"
+      if [ -f "$secret" ]; then
+        val=$(cat "$secret")
+        export "$var=$val"
+        env_secret_debug "Expanded variable: $var (redacted)"
+      else
+        env_secret_debug "Secret file does not exist! $secret"
+      fi
+      ;;
+  esac
 }
 
 env_secrets_expand() {
