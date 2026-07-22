@@ -1,0 +1,49 @@
+services:
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:11
+    restart: unless-stopped
+    environment:
+      USER_UID: "1001"
+      USER_GID: "1001"
+      # --- server ---
+      FORGEJO__server__DOMAIN: git.ullrich.is
+      FORGEJO__server__SSH_DOMAIN: git.ullrich.is
+      FORGEJO__server__ROOT_URL: https://git.ullrich.is/
+      FORGEJO__server__HTTP_PORT: "3000"
+      FORGEJO__server__START_SSH_SERVER: "true"
+      FORGEJO__server__SSH_PORT: "22"          # advertised in clone URLs (host port)
+      FORGEJO__server__SSH_LISTEN_PORT: "2222" # container listens here (unprivileged)
+      FORGEJO__server__LFS_START_SERVER: "true"
+      # --- database (SQLite: simple, plenty for a personal multi-org forge) ---
+      FORGEJO__database__DB_TYPE: sqlite3
+      # --- registration: personal instance, accounts come via OIDC / admin ---
+      FORGEJO__security__INSTALL_LOCK: "true"
+      FORGEJO__service__DISABLE_REGISTRATION: "true"
+      FORGEJO__service__REQUIRE_SIGNIN_VIEW: "false"
+      FORGEJO__openid__ENABLE_OPENID_SIGNIN: "false"
+      FORGEJO__openid__ENABLE_OPENID_SIGNUP: "false"
+      # --- OIDC (Authelia) auto-provisioning; auth source added via CLI in phase 2 ---
+      FORGEJO__oauth2_client__ENABLE_AUTO_REGISTRATION: "true"
+      FORGEJO__oauth2_client__USERNAME: nickname
+      FORGEJO__oauth2_client__ACCOUNT_LINKING: auto
+      FORGEJO__oauth2_client__UPDATE_AVATAR: "true"
+      # --- Actions (CI/CD) ---
+      FORGEJO__actions__ENABLED: "true"
+      # Resolve bare `uses: actions/*` against github.com (workflows use actions/checkout etc.)
+      FORGEJO__actions__DEFAULT_ACTIONS_URL: github
+    volumes:
+      - ./volumes/forgejo:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "22:2222" # git-over-ssh (host :22 -> container :2222)
+    networks:
+      - caddy
+    labels:
+      caddy: git.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 3000}}"
+      com.centurylinklabs.watchtower.enable: true
+
+networks:
+  caddy:
+    external: true
