@@ -64,3 +64,32 @@ telemetry:
       read: '6s'
       write: '6s'
       idle: '30s'
+
+# Identity Providers (OpenID Connect) https://www.authelia.com/configuration/identity-providers/openid-connect/provider/
+# hmac_secret is injected via env *_FILE; the jwks signing key is injected from
+# /run/secrets/OIDC_JWKS_KEY via the `template` config filter (X_AUTHELIA_CONFIG_FILTERS=template).
+identity_providers:
+  oidc:
+    jwks:
+      - key: |
+{{ secret "/run/secrets/OIDC_JWKS_KEY" | indent 10 }}
+    clients:
+      - client_id: 'forgejo'
+        client_name: 'Forgejo'
+        # pbkdf2 hash of the client secret; the plaintext lives only in Forgejo's auth source.
+        client_secret: '$pbkdf2-sha512$310000$meFZOrv0TaM9c5q.e3kBCw$0t6FzCEnWZGvAaa.j3EJjsWOaUNvQvOrNZMZEeuG8wuTqm5Sk7WWaCOKeJ.FLcVkl4QeX6qANHuZxIIHc9Htew'
+        public: false
+        authorization_policy: 'two_factor'
+        redirect_uris:
+          - 'https://git.ullrich.is/user/oauth2/authelia/callback'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'groups'
+        response_types:
+          - 'code'
+        grant_types:
+          - 'authorization_code'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
