@@ -1,6 +1,6 @@
 services:
   forgejo:
-    image: codeberg.org/forgejo/forgejo:11
+    image: codeberg.org/forgejo/forgejo:16
     restart: unless-stopped
     environment:
       USER_UID: "1001"
@@ -14,6 +14,9 @@ services:
       FORGEJO__server__SSH_PORT: "22"          # advertised in clone URLs (host port)
       FORGEJO__server__SSH_LISTEN_PORT: "2222" # container listens here (unprivileged)
       FORGEJO__server__LFS_START_SERVER: "true"
+      # v16 dropped the Docker default of `*`. Trust only private ranges —
+      # Caddy reaches us over the internal `caddy` docker network.
+      FORGEJO__security__REVERSE_PROXY_TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
       # --- database (SQLite: simple, plenty for a personal multi-org forge) ---
       FORGEJO__database__DB_TYPE: sqlite3
       # --- registration: personal instance, accounts come via OIDC / admin ---
