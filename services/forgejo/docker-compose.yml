@@ -25,6 +25,33 @@ services:
       FORGEJO__service__REQUIRE_SIGNIN_VIEW: "false"
       FORGEJO__openid__ENABLE_OPENID_SIGNIN: "false"
       FORGEJO__openid__ENABLE_OPENID_SIGNUP: "false"
+      # --- instance commit signing -------------------------------------------
+      # Without a signing key, any branch protection rule with
+      # `require_signed_commits` refuses every merge with "won't sign: nokey",
+      # because Forgejo cannot sign the merge commit it creates.
+      #
+      # The ed25519 key lives at /data/gitea/home/.gnupg — Forgejo signs with
+      # HOME=/data/gitea/home, NOT the git user's own home, so a key in
+      # /data/git/.gnupg is invisible to it ("skipped ...: No secret key").
+      # It is inside the data volume, so it survives container recreation, and
+      # has no passphrase — Forgejo signs unattended and cannot prompt.
+      #
+      # keyboxd (gpg 2.4's keybox daemon) is deliberately DISABLED in that
+      # keyring: it held pubring.db.lock and made Forgejo's signing call time
+      # out, failing merges with a 500 ("keydb_search failed: Operation timed
+      # out"). Removing use-keyboxd from common.conf puts the key in the
+      # classic pubring.kbx with no daemon and no lock contention.
+      #
+      # NOTE the `_0X2E_` escape: that is how a dot in a section name is encoded
+      # for environment-to-ini. `_2E` silently yields a bogus
+      # [repository_2esigning] section that looks configured and does nothing.
+      FORGEJO__repository_0X2E_signing__SIGNING_KEY: 2AA796626C659F9B
+      FORGEJO__repository_0X2E_signing__SIGNING_NAME: Forgejo
+      FORGEJO__repository_0X2E_signing__SIGNING_EMAIL: forgejo@git.ullrich.is
+      FORGEJO__repository_0X2E_signing__INITIAL_COMMIT: always
+      FORGEJO__repository_0X2E_signing__CRUD_ACTIONS: always
+      FORGEJO__repository_0X2E_signing__MERGES: always
+      FORGEJO__repository_0X2E_signing__WIKI: never
       # --- OIDC (Authelia) auto-provisioning; auth source added via CLI in phase 2 ---
       FORGEJO__oauth2_client__ENABLE_AUTO_REGISTRATION: "true"
       FORGEJO__oauth2_client__USERNAME: nickname
