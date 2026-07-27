@@ -2,6 +2,13 @@ services:
   forgejo:
     image: codeberg.org/forgejo/forgejo:16
     restart: unless-stopped
+    # Stable hostname. Docker otherwise sets the hostname to the container ID,
+    # which changes on every recreate — and GnuPG keys its lock files on the
+    # hostname, so stale locks from a previous container can block signing.
+    # With require_signed_commits on trails-cool/trails, a signing failure
+    # blocks *every* merge, so this is cheap insurance against a wedged repo
+    # right after an upgrade. See the instance signing notes below.
+    hostname: forgejo
     environment:
       USER_UID: "1001"
       USER_GID: "1001"
