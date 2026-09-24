@@ -1,0 +1,22 @@
+## Serves the MTA-STS policy for the three mail domains hosted on this box.
+## Fastmail's inbound hosts are matched by wildcard so the policy survives a
+## region change (in1/in2 <-> eu1/eu2) without an edit.
+##
+## Policy lives at site/.well-known/mta-sts.txt. nginx serves .txt as
+## text/plain, which the MTA-STS spec requires. Bump `mode` to `enforce`
+## once the TLS-RPT reports are clean.
+services:
+  mta-sts:
+    image: nginx:alpine
+    restart: always
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    networks:
+      - caddy
+    labels:
+      caddy: mta-sts.ullrich.is, mta-sts.seidbereit.de, mta-sts.clever.dev
+      caddy.reverse_proxy: "{{upstreams 80}}"
+
+networks:
+  caddy:
+    external: true
