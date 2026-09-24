@@ -16,10 +16,11 @@
 # token. It lives in Grafana's database instead. On a fresh volume these rules
 # would load but reference a missing "ntfy" contact point until it is recreated.
 #
-# Thresholds for RootFilesystemSpaceLow (7%) and RootFilesystemInodesLow (5%)
-# are set just BELOW the values at the time of writing (9.7% space free,
-# 6.6% inodes free) so the channel stays quiet until things get worse.
-# TIGHTEN THESE (~15% / ~20%) once the space cleanup work is done.
+# Thresholds: RootFilesystemSpaceLow 15% free, RootFilesystemInodesLow 20% free.
+# Originally 7% / 5% -- set just below the values at the time (9.7% / 6.6%) so
+# the channel stayed quiet during the cleanup. Raised 2026-09-24 once that work
+# finished: root is now 94% free on bytes and 96.3% on inodes, and thresholds
+# that low would only have fired once the incident was already unavoidable.
 apiVersion: 1
 groups:
     - orgId: 1
@@ -90,6 +91,134 @@ groups:
             summary: 'RAID array {{ $labels.device }} is DEGRADED: {{ $value }} disk(s) missing. Check /proc/mdstat immediately.'
           labels:
             severity: critical
+          isPaused: false
+        - uid: cfyfzxf189i4gd
+          title: RootFilesystemInodesLow
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: ae8y28lw4y1hce
+              model:
+                datasource:
+                    type: prometheus
+                    uid: ae8y28lw4y1hce
+                editorMode: code
+                expr: 100 * node_filesystem_files_free{mountpoint="/"} / node_filesystem_files{mountpoint="/"}
+                instant: true
+                intervalMs: 1000
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                settings:
+                    mode: dropNN
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 20
+                        type: lt
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          noDataState: OK
+          execErrState: Error
+          for: 15m
+          annotations:
+            summary: Root filesystem free INODES at {{ $value | printf "%.1f" }}% (threshold 20%). Inode exhaustion causes ENOSPC even with free bytes.
+          labels:
+            severity: critical
+          isPaused: false
+        - uid: afyfzxfa8wb28c
+          title: RootFilesystemSpaceLow
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: ae8y28lw4y1hce
+              model:
+                datasource:
+                    type: prometheus
+                    uid: ae8y28lw4y1hce
+                editorMode: code
+                expr: 100 * node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}
+                instant: true
+                intervalMs: 1000
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                settings:
+                    mode: dropNN
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 15
+                        type: lt
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          noDataState: OK
+          execErrState: Error
+          for: 15m
+          annotations:
+            summary: Root filesystem free space is {{ $value | printf "%.1f" }}% (threshold 15%).
+          labels:
+            severity: warning
           isPaused: false
         - uid: efyfzxdyntxxcf
           title: MdArrayFailedDisk
@@ -282,132 +411,4 @@ groups:
             summary: node-exporter is down. All RAID, disk and inode alerts are blind while this is true.
           labels:
             severity: critical
-          isPaused: false
-        - uid: cfyfzxf189i4gd
-          title: RootFilesystemInodesLow
-          condition: C
-          data:
-            - refId: A
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: ae8y28lw4y1hce
-              model:
-                datasource:
-                    type: prometheus
-                    uid: ae8y28lw4y1hce
-                editorMode: code
-                expr: 100 * node_filesystem_files_free{mountpoint="/"} / node_filesystem_files{mountpoint="/"}
-                instant: true
-                intervalMs: 1000
-                maxDataPoints: 43200
-                range: false
-                refId: A
-            - refId: B
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: __expr__
-              model:
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: A
-                intervalMs: 1000
-                maxDataPoints: 43200
-                reducer: last
-                refId: B
-                settings:
-                    mode: dropNN
-                type: reduce
-            - refId: C
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: __expr__
-              model:
-                conditions:
-                    - evaluator:
-                        params:
-                            - 5
-                        type: lt
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: B
-                intervalMs: 1000
-                maxDataPoints: 43200
-                refId: C
-                type: threshold
-          noDataState: OK
-          execErrState: Error
-          for: 15m
-          annotations:
-            summary: Root filesystem free INODES at {{ $value | printf "%.1f" }}% (threshold 5%). Inode exhaustion causes ENOSPC even with free bytes.
-          labels:
-            severity: critical
-          isPaused: false
-        - uid: afyfzxfa8wb28c
-          title: RootFilesystemSpaceLow
-          condition: C
-          data:
-            - refId: A
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: ae8y28lw4y1hce
-              model:
-                datasource:
-                    type: prometheus
-                    uid: ae8y28lw4y1hce
-                editorMode: code
-                expr: 100 * node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}
-                instant: true
-                intervalMs: 1000
-                maxDataPoints: 43200
-                range: false
-                refId: A
-            - refId: B
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: __expr__
-              model:
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: A
-                intervalMs: 1000
-                maxDataPoints: 43200
-                reducer: last
-                refId: B
-                settings:
-                    mode: dropNN
-                type: reduce
-            - refId: C
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: __expr__
-              model:
-                conditions:
-                    - evaluator:
-                        params:
-                            - 7
-                        type: lt
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: B
-                intervalMs: 1000
-                maxDataPoints: 43200
-                refId: C
-                type: threshold
-          noDataState: OK
-          execErrState: Error
-          for: 15m
-          annotations:
-            summary: Root filesystem free space is {{ $value | printf "%.1f" }}% (threshold 7%).
-          labels:
-            severity: warning
           isPaused: false
