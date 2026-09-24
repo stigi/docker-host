@@ -2,7 +2,7 @@
 
 services:
   web:
-    image: ghcr.io/mastodon/mastodon:latest
+    image: ghcr.io/mastodon/mastodon:v4.7.2
     user: 991:1001
     restart: unless-stopped
     env_file: .env
@@ -36,7 +36,7 @@ services:
       com.centurylinklabs.watchtower.enable: true
 
   streaming:
-    image: ghcr.io/mastodon/mastodon-streaming:latest
+    image: ghcr.io/mastodon/mastodon-streaming:v4.7.2
     user: 991:1001
     restart: unless-stopped
     env_file: .env
@@ -62,7 +62,7 @@ services:
       com.centurylinklabs.watchtower.enable: true
 
   sidekiq:
-    image: ghcr.io/mastodon/mastodon:latest
+    image: ghcr.io/mastodon/mastodon:v4.7.2
     user: 991:1001
     restart: unless-stopped
     env_file: .env
@@ -75,7 +75,7 @@ services:
       - caddy
       - internal_network
     healthcheck:
-      test: ['CMD-SHELL', "ps aux | grep '[s]idekiq\ 6' || false"]
+      test: ['CMD-SHELL', "ps aux | grep '[s]idekiq' || false"]
     depends_on:
       - db
       - redis
