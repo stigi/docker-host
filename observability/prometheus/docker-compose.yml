@@ -2,6 +2,9 @@ services:
   prometheus:
     image: prom/prometheus:latest
     restart: unless-stopped
+    extra_hosts:
+      # Needed to scrape nftables-exporter, which runs on host network
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
@@ -36,16 +39,21 @@ services:
       - --collector.filesystem.ignored-mount-points
       - "^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)"
   
-  iptables-exporter:
-    image: madron/iptables-exporter
+  # Replaced madron/iptables-exporter (2021, legacy ip_tables) with
+  # cacack/nftables-exporter (reads via `nft`) during 22.04 → 24.04 upgrade.
+  # Runs on host network + as root because nftables requires access to the
+  # host's netfilter tables via netlink in the host network namespace.
+  # Metric names changed: iptables_* → nftables_* (nftables_chain_rules,
+  # nftables_rule_bytes, nftables_rule_packets, nftables_table_chains).
+  nftables-exporter:
+    image: cacack/nftables-exporter
     restart: unless-stopped
-    command: iptables-exporter --port 9119
-    networks:
-      - internal
+    network_mode: host
+    user: "0:0"
     cap_add:
       - NET_ADMIN
-      - NET_RAW
-      - DAC_READ_SEARCH
+    volumes:
+      - ./nftables_exporter.yaml:/etc/nftables_exporter.yaml:ro
 
 volumes:
   prometheus-data:
