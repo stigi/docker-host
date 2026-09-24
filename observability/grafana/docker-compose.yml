@@ -5,6 +5,19 @@ services:
     volumes:
       - ./grafana.ini:/etc/grafana/grafana.ini
       - 'grafana_storage:/var/lib/grafana'
+    secrets:
+      - GRAFANA_ADMIN_PASSWORD
+    environment:
+      # Grafana's file provider: GF_<SECTION>_<KEY>__FILE (double underscore).
+      # Set 2026-09-24 -- the admin account was still on the default
+      # admin/admin. That was not reachable from the internet (Authelia gates
+      # the edge and :3000 is not published), but every container on the
+      # `caddy` network could reach it directly.
+      #
+      # Declarative on purpose: setting it through the API leaves the change in
+      # the grafana_storage volume only, so a fresh volume would come back as
+      # admin/admin with nothing in the repo to say otherwise.
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/GRAFANA_ADMIN_PASSWORD
     networks:
       - caddy
       - grafana
@@ -19,6 +32,10 @@ services:
       
 volumes:
   grafana_storage: {}
+
+secrets:
+  GRAFANA_ADMIN_PASSWORD:
+    file: ./secrets/GRAFANA_ADMIN_PASSWORD
 
 networks:
   caddy:
