@@ -28,3 +28,26 @@ storage_config:
 limits_config:
   ingestion_rate_mb: 16
   ingestion_burst_size_mb: 32
+  # 30 days. Added 2026-09-24 -- nothing had ever been deleted: 629 daily index
+  # periods, i.e. ~1.7 years of logs in 13 GB. Must be a multiple of the 24h
+  # index period above.
+  retention_period: 720h
+  # Retention (the compactor deleting expired chunks) is separate from the
+  # DELETE REQUEST API (on-demand deletion of specific streams). We want the
+  # first, not the second: port 3100 is published on 0.0.0.0 with
+  # auth_enabled: false, so an exposed delete API would let anyone who can
+  # reach the host remove log data. Retention still works with this disabled.
+  deletion_mode: disabled
+
+compactor:
+  working_directory: /tmp/loki/compactor
+  # The compactor already runs (Loki 3.x starts it in single-binary mode) and
+  # has been compacting the index all along -- what was missing is retention.
+  retention_enabled: true
+  # Mandatory when retention_enabled: Loki 3.x refuses to start without it.
+  # NOTE: `shared_store` was REMOVED in Loki 3.0; most retention guides still
+  # show it and would fail to boot here.
+  delete_request_store: filesystem
+  compaction_interval: 10m
+  # Grace period between marking a chunk expired and unlinking it.
+  retention_delete_delay: 2h
