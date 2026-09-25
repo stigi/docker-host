@@ -30,10 +30,16 @@
 # (forgejo-runners_dind-data, _dind-sock, _ws). Moving or renaming this
 # directory without this line would make Compose create fresh, empty volumes
 # and silently orphan the dind image cache and the workspace.
-# State (runner-1: registration token + act cache, ~650MB) deliberately stays
-# at /home/trails/forgejo-runners/runner-1 and is referenced ABSOLUTELY below.
-# Only the config lives in this repo; a relative ./runner-1 would now resolve
-# here and the runner would come up unregistered.
+# Runner state (.runner registration + act cache) is a NAMED VOLUME, like the
+# three below it. It used to be a bind mount at /home/trails/forgejo-runners.
+#
+# Not a path next to this file on purpose: /home/docker-host/repo sits under
+# /home, which borgmatic backs up, while /var/lib/docker/volumes/forgejo-runners_*
+# is explicitly excluded. A bind mount here would silently pull the act cache
+# and the runner's registration TOKEN into the backups. It would also put a
+# credential inside a git working tree, where `git clean -xdf` destroys the
+# registration -- and FORGEJO_RUNNER_TOKEN is empty, so recovery means minting
+# a new token by hand in Forgejo's admin UI.
 name: forgejo-runners
 
 services:
@@ -48,13 +54,13 @@ services:
       - dockerd
       - --host=unix:///var/run/docker-shared/docker.sock
       - --group=1002
-    mem_limit: 15g
-    memswap_limit: 15g
+    mem_limit: 12g
+    memswap_limit: 12g
     # 6, not 4: with runner capacity: 2 this dind serves two concurrent
     # jobs, and measurement on 2026-09-22 showed the workload is
     # CPU-bound once past checkout (cpu pressure 13-61 while io fell to
     # 7-13). The old two-slot setup gave 2 concurrent jobs 6 cores
-    # (3 x cpus: 2 since capacity went to 3); 4 here was sized for capacity: 1 and under-served
+    # (2 x cpus: 3); 4 here was sized for capacity: 1 and under-served
     # concurrency. Leaves 2 of 8 cores for the box's other ~47 containers.
     cpus: 6
     volumes:
@@ -88,7 +94,7 @@ services:
       FORGEJO_RUNNER_TOKEN: ${FORGEJO_RUNNER_TOKEN:-}
       RUNNER_NAME: ${RUNNER_NAME:-trails-runner-1}
     volumes:
-      - /home/trails/forgejo-runners/runner-1:/data
+      - runner-state:/data
       - ./register-init.sh:/register-init.sh:ro
     entrypoint: ["/bin/sh", "/register-init.sh"]
     networks: [slot]
@@ -110,7 +116,7 @@ services:
     environment:
       DOCKER_HOST: unix:///var/run/docker-shared/docker.sock
     volumes:
-      - /home/trails/forgejo-runners/runner-1:/data
+      - runner-state:/data
       - ./config.yml:/etc/forgejo-runner/config.yml:ro
       - dind-sock:/var/run/docker-shared
       - ws:/workspace
@@ -138,3 +144,7 @@ volumes:
   dind-data:
   dind-sock:
   ws:
+  # Holds /data for the runner: .runner (registration id + token) and the act
+  # cache. The cache is disposable; .runner is NOT -- losing it forces a manual
+  # re-registration. Deliberately inside the forgejo-runners_* backup exclusion.
+  runner-state:
