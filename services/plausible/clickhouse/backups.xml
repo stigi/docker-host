@@ -1,0 +1,31 @@
+<!--
+Enables ClickHouse's native BACKUP/RESTORE. Without a `backups.allowed_disk`
+ClickHouse refuses the Disk backup engine outright:
+
+  Code: 318. The 'backups.allowed_disk' configuration parameter is not set,
+  cannot use 'Disk' backup engine. (INVALID_CONFIG_PARAMETER)
+
+borgmatic has no ClickHouse hook, so before this the only copy of the
+analytics data in the archive was the raw /var/lib/clickhouse directory,
+taken while the server was running. That is MergeTree parts plus WAL: not
+crash-consistent, and not guaranteed to restore. A borgmatic `commands:
+before` hook now writes a real backup here first, mirroring what the four
+postgresql_databases hooks already do.
+
+The destination sits INSIDE the event-data volume on purpose. That volume is
+already in the borgmatic source set, so the backup gets archived without
+changing the backup scope.
+-->
+<clickhouse>
+    <storage_configuration>
+        <disks>
+            <backups>
+                <type>local</type>
+                <path>/var/lib/clickhouse/backups/</path>
+            </backups>
+        </disks>
+    </storage_configuration>
+    <backups>
+        <allowed_disk>backups</allowed_disk>
+    </backups>
+</clickhouse>
