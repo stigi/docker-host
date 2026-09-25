@@ -1,0 +1,110 @@
+# Grafana alert rule for backup freshness on zebra.ullrich.is.
+#
+# Added 2026-09-25. Closes the gap that borgmatic's `after: error` cannot:
+# that hook only fires when borgmatic RUNS and fails. A stopped timer, a unit
+# that fails to start, or a host that is off produces no error and therefore no
+# notification -- the same silent-failure shape as the mdadm degradation that
+# went unnoticed for 16 days.
+#
+# The chain:
+#   borgmatic `after: action, when: [create], states: [finish]`
+#     -> /usr/local/bin/borgmatic-metrics writes
+#        /var/lib/node_exporter/textfile_collector/borgmatic.prom
+#     -> node_exporter --collector.textfile.directory (prometheus compose)
+#     -> Prometheus -> this rule -> ntfy (default notification policy receiver).
+#
+# `states: [finish]` in the borgmatic hook is load-bearing: borgmatic's
+# filter_hooks treats an unset `states` as matching EVERY state, so without it
+# the timestamp would be refreshed after a FAILED backup and this alert could
+# never fire.
+#
+# noDataState is Alerting on purpose. If the .prom file is deleted or
+# node_exporter stops publishing it, the series disappears entirely, and
+# silence would otherwise look identical to health.
+#
+# STATUS: exported from the live Grafana, NOT authoritative -- same as
+# raid-and-disk.yaml. The rule lives in the grafana_storage volume; this is the
+# version-controlled copy.
+#
+# Verified 2026-09-25: with `for` temporarily at 10s and the timestamp
+# backdated 100 hours, the rule went inactive -> pending -> firing and ntfy
+# delivered "No successful borgmatic backup for 100.0 hours (threshold 48)".
+# Note the alert must stay firing past Alertmanager's group_wait (~30s) or the
+# notification is never sent.
+#
+# 2026-09-25: summaries now use $values.B.Value rather than $value. In Grafana
+# unified alerting $value is a STRING ("[ var='B' labels={} value=100.03 ]"),
+# so `$value | printf "%.1f"` rendered the literal `%!f(string=[)` in the
+# delivered notification. These rules had never fired, so it went unnoticed
+# until the backup-staleness alert was tested end to end.
+apiVersion: 1
+groups:
+    - orgId: 1
+      name: backups
+      folder: Infrastructure
+      interval: 1m
+      rules:
+        - uid: afzax4oi37egwa
+          title: BorgmaticBackupStale
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: ae8y28lw4y1hce
+              model:
+                datasource:
+                    type: prometheus
+                    uid: ae8y28lw4y1hce
+                editorMode: code
+                expr: (time() - borgmatic_last_success_timestamp_seconds) / 3600
+                instant: true
+                intervalMs: 1000
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                settings:
+                    mode: dropNN
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 48
+                        type: gt
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          noDataState: Alerting
+          execErrState: Error
+          for: 1h
+          annotations:
+            summary: 'No successful borgmatic backup for {{ $values.B.Value | printf "%.1f" }} hours (threshold 48). `after: error` cannot catch this: it only fires when borgmatic runs and fails, not when it never runs.'
+          labels:
+            severity: critical
+          isPaused: false

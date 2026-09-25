@@ -21,6 +21,12 @@
 # the channel stayed quiet during the cleanup. Raised 2026-09-24 once that work
 # finished: root is now 94% free on bytes and 96.3% on inodes, and thresholds
 # that low would only have fired once the incident was already unavoidable.
+#
+# 2026-09-25: summaries now use $values.B.Value rather than $value. In Grafana
+# unified alerting $value is a STRING ("[ var='B' labels={} value=100.03 ]"),
+# so `$value | printf "%.1f"` rendered the literal `%!f(string=[)` in the
+# delivered notification. These rules had never fired, so it went unnoticed
+# until the backup-staleness alert was tested end to end.
 apiVersion: 1
 groups:
     - orgId: 1
@@ -88,7 +94,71 @@ groups:
           execErrState: Error
           for: 2m
           annotations:
-            summary: 'RAID array {{ $labels.device }} is DEGRADED: {{ $value }} disk(s) missing. Check /proc/mdstat immediately.'
+            summary: 'RAID array {{ $labels.device }} is DEGRADED: {{ $values.B.Value | printf "%.0f" }} disk(s) missing. Check /proc/mdstat immediately.'
+          labels:
+            severity: critical
+          isPaused: false
+        - uid: efyfzxdyntxxcf
+          title: MdArrayFailedDisk
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: ae8y28lw4y1hce
+              model:
+                datasource:
+                    type: prometheus
+                    uid: ae8y28lw4y1hce
+                editorMode: code
+                expr: node_md_disks{state="failed"}
+                instant: true
+                intervalMs: 1000
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                settings:
+                    mode: dropNN
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0
+                        type: gt
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          noDataState: OK
+          execErrState: Error
+          for: 2m
+          annotations:
+            summary: RAID array {{ $labels.device }} reports {{ $values.B.Value | printf "%.0f" }} FAILED disk(s).
           labels:
             severity: critical
           isPaused: false
@@ -152,7 +222,7 @@ groups:
           execErrState: Error
           for: 15m
           annotations:
-            summary: Root filesystem free INODES at {{ $value | printf "%.1f" }}% (threshold 20%). Inode exhaustion causes ENOSPC even with free bytes.
+            summary: Root filesystem free INODES at {{ $values.B.Value | printf "%.1f" }}% (threshold 20%). Inode exhaustion causes ENOSPC even with free bytes.
           labels:
             severity: critical
           isPaused: false
@@ -216,73 +286,9 @@ groups:
           execErrState: Error
           for: 15m
           annotations:
-            summary: Root filesystem free space is {{ $value | printf "%.1f" }}% (threshold 15%).
+            summary: Root filesystem free space is {{ $values.B.Value | printf "%.1f" }}% (threshold 15%).
           labels:
             severity: warning
-          isPaused: false
-        - uid: efyfzxdyntxxcf
-          title: MdArrayFailedDisk
-          condition: C
-          data:
-            - refId: A
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: ae8y28lw4y1hce
-              model:
-                datasource:
-                    type: prometheus
-                    uid: ae8y28lw4y1hce
-                editorMode: code
-                expr: node_md_disks{state="failed"}
-                instant: true
-                intervalMs: 1000
-                maxDataPoints: 43200
-                range: false
-                refId: A
-            - refId: B
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: __expr__
-              model:
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: A
-                intervalMs: 1000
-                maxDataPoints: 43200
-                reducer: last
-                refId: B
-                settings:
-                    mode: dropNN
-                type: reduce
-            - refId: C
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: __expr__
-              model:
-                conditions:
-                    - evaluator:
-                        params:
-                            - 0
-                        type: gt
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: B
-                intervalMs: 1000
-                maxDataPoints: 43200
-                refId: C
-                type: threshold
-          noDataState: OK
-          execErrState: Error
-          for: 2m
-          annotations:
-            summary: RAID array {{ $labels.device }} reports {{ $value }} FAILED disk(s).
-          labels:
-            severity: critical
           isPaused: false
         - uid: efyfzxe6airy8d
           title: MdArrayNotActive

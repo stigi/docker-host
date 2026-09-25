@@ -36,6 +36,13 @@ services:
       - '--path.rootfs=/host'
       - '--path.procfs=/host/proc' 
       - '--path.sysfs=/host/sys'
+      # Lets host-side jobs publish metrics by dropping a .prom file in this
+      # directory. Used by /usr/local/bin/borgmatic-metrics for backup
+      # freshness: `after: error` only fires when borgmatic RUNS and fails, so
+      # a stopped timer or a failed unit would otherwise be silent.
+      # The path is inside the read-only /host bind above; node_exporter only
+      # reads it, the host writes it.
+      - '--collector.textfile.directory=/host/var/lib/node_exporter/textfile_collector'
       - --collector.filesystem.ignored-mount-points
       - "^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)"
   
