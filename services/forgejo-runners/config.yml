@@ -1,0 +1,80 @@
+# Forgejo Actions runner config — socket-based.
+#
+# Changed 2026-09-16 alongside docker-compose.new.yml:
+#   - DOCKER_HOST is now a unix socket, not tcp://host.docker.internal:2375
+#   - the socket is bind-mounted into every job container via container.options
+#   - --add-host=host.docker.internal:host-gateway dropped (no TCP to reach)
+#   - valid_volumes narrowed from '**' (ANY host path) to the two paths jobs
+#     actually need
+log:
+  level: info
+
+runner:
+  file: /data/.runner
+  # Raised 1 -> 2 on 2026-09-22 after measuring a live job: dind was
+  # using 848 MiB of its 12 GiB cap and ~1 of 8 cores, with io pressure
+  # ~1-4 steady state. Two concurrent jobs share ONE dind, so there is
+  # still a single image cache and a single build cache -- unlike a
+  # second slot, which would duplicate both (that duplication is what
+  # reached 151 GB).
+  # Risk: concurrent jobs on one daemon can collide on docker-compose project
+  # names or host ports inside the daemon. act namespaces its own job
+  # containers by task id, so those are safe. Revert to 1 if it bites.
+  #
+  # Raised 2 -> 3 on 2026-09-25. CPU and memory have headroom (8 cores, load
+  # ~1.5; dind mem raised 12g -> 15g alongside this so each slot keeps ~5g).
+  # The binding constraint is NOT cpu or memory but IO: these are spinning
+  # disks at ~150-250 combined IOPS, and three concurrent dependency installs
+  # are the same access pattern that caused the original incident. Watch
+  # /proc/pressure/io during a busy run; if `full avg10` sits above ~50,
+  # drop back to 2.
+  capacity: 3
+  timeout: 1h
+  shutdown_timeout: 10m
+  # Injected into every JOB container (not the runner itself — the runner gets
+  # its DOCKER_HOST from the compose environment).
+  envs:
+    DOCKER_HOST: unix:///var/run/docker.sock
+    npm_config_store_dir: /ci-cache/pnpm-store
+    TURBO_CACHE_DIR: /ci-cache/turbo
+  labels:
+    - trails-runner:docker://node:24-bookworm
+    - ubuntu-latest:docker://catthehacker/ubuntu:act-22.04
+    - playwright:docker://mcr.microsoft.com/playwright:v1.61.1-noble
+
+cache:
+  # Forgejo's built-in Actions cache server. Was `enabled: false`, which makes
+  # every actions/cache step in a workflow a silent no-op -- no error, just no
+  # caching. Enabled 2026-09-16.
+  #
+  # dir lives under /data, which is bind-mounted from ./runner-1 on the /home
+  # LV -- deliberately NOT on root. /home is 719 G at 12% used and 1% inodes,
+  # so CI cache growth cannot contribute to root's inode problem.
+  enabled: true
+  dir: /data/.cache/actcache
+  # host/port are pinned rather than auto-detected. The cache server runs in
+  # the RUNNER container, but job containers run on the DIND daemon and resolve
+  # DNS through dind's embedded resolver, not Compose's -- so a service name
+  # would not resolve. Job containers reach this IP by routing out through
+  # dind's bridge onto the slot network. The runner holds this address
+  # statically via ipam in docker-compose.yml.
+  host: 10.44.240.10
+  port: 8088
+
+container:
+  network: ""
+  privileged: false
+  # Job containers are created BY the dind daemon, so these bind-mount sources
+  # resolve on the dind container's filesystem — which is where the shared
+  # socket volume and /workspace live.
+  # --add-host restored 2026-09-22. It was dropped in the socket rewrite as
+  # "no longer needed for DOCKER_HOST", which was wrong: the workflows assert
+  # host.docker.internal resolves ("Assert the runner's container options
+  # survived"), and Visual Tests failed on exactly that. Do not remove again.
+  options: "--add-host=host.docker.internal:host-gateway -v /var/run/docker-shared/docker.sock:/var/run/docker.sock -v /workspace/.ci-cache:/ci-cache --shm-size=2g"
+  workdir_parent: /workspace
+  # Previously '**', which let a job bind-mount any path on the dind
+  # filesystem. /workspace/** keeps repo-relative compose mounts working.
+  valid_volumes:
+    - /var/run/docker-shared/docker.sock
+    - /workspace/**

@@ -1,0 +1,31 @@
+[Unit]
+Description=Prune Forgejo runner dind images and stopped containers
+Documentation=https://docs.docker.com/reference/cli/docker/image/prune/
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Idle IO class: this runs on 7200 RPM disks shared with ~51 containers.
+IOSchedulingClass=idle
+Nice=19
+# Weekly pass: dangling images and exited containers only. Deliberately NOT
+# `image prune -a`.
+#
+# GOTCHA, do not "fix" this: `docker image prune -a --filter until=<t>` filters
+# on image CREATION time, not last-used time. Because job containers are
+# ephemeral, nothing references the base images once a job ends, so -a would
+# delete node:24-bookworm, catthehacker/ubuntu and the ~2 GB Playwright image
+# every single week and re-pull them on the next job. On these disks and this
+# link that is a bad trade.
+ExecStart=/usr/bin/docker exec trails-runner-dind \
+  docker --host=unix:///var/run/docker-shared/docker.sock container prune -f
+ExecStart=/usr/bin/docker exec trails-runner-dind \
+  docker --host=unix:///var/run/docker-shared/docker.sock image prune -f
+# Build cache is capped continuously by builder.gc in daemon.json (20 GB);
+# this is a backstop for anything the GC policy misses.
+ExecStart=/usr/bin/docker exec trails-runner-dind \
+  docker --host=unix:///var/run/docker-shared/docker.sock builder prune -f --filter until=336h
+
+[Install]
+WantedBy=multi-user.target
