@@ -1,6 +1,10 @@
 services:
   loki:
-    image: grafana/loki:latest
+    # PINNED. Loki and promtail must move together, and `:latest` is now 3.7.x
+    # against the 3.1.2 running here. The retention config added 2026-09-24
+    # (compactor + delete_request_store) is version-sensitive, so upgrade
+    # deliberately and re-verify retention afterwards.
+    image: grafana/loki:3.1.2
     restart: always
     networks:
       - internal
@@ -17,7 +21,11 @@ services:
         mode: non-blocking
 
   promtail:
-    image: grafana/promtail:latest
+    # PINNED to match loki above. This container was running an UNTAGGED 23-month
+    # -old digest while its compose said `:latest`; a `docker compose pull` on
+    # 2026-09-25 cached a far newer image, so `up -d` would have jumped it ~2
+    # years in one step.
+    image: grafana/promtail:3.1.2
     restart: unless-stopped
     networks:
       - internal
