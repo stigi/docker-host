@@ -21,14 +21,29 @@ runner:
   # names or host ports inside the daemon. act namespaces its own job
   # containers by task id, so those are safe. Revert to 1 if it bites.
   #
-  # Raised 2 -> 3 on 2026-09-25. CPU and memory have headroom (8 cores, load
-  # ~1.5; dind mem raised 12g -> 15g alongside this so each slot keeps ~5g).
-  # The binding constraint is NOT cpu or memory but IO: these are spinning
-  # disks at ~150-250 combined IOPS, and three concurrent dependency installs
-  # are the same access pattern that caused the original incident. Watch
-  # /proc/pressure/io during a busy run; if `full avg10` sits above ~50,
-  # drop back to 2.
-  capacity: 3
+  # Tried 3 on 2026-09-25 and reverted the same day. MEASURED, not guessed:
+  #
+  #   throughput   12 jobs (2 PRs) cleared in 1817s at capacity 3, vs ~2060s
+  #                extrapolated from capacity 2 (6 jobs alone took 1035s).
+  #                About 12% better.
+  #   latency      Journal Image Smoke Test 556s -> 1096-1355s (+97-144%).
+  #                Checks +18-45%. Visual Tests +8-81%.
+  #   variance     E2E Tests took 1074s on one PR and 381s on the other --
+  #                same work, 2.6x spread depending on what else was running.
+  #   saturation   io full avg10 peaked 77.25 and BREACHED the 50 abort
+  #                threshold 36 times over the run. cpu some avg10 peaked
+  #                48.49; dind memory peaked 6.21 GiB. Load peaked 24.87 on
+  #                8 cores.
+  #
+  # IO is the binding constraint -- spinning disks at ~150-250 combined IOPS --
+  # but CPU was under real pressure too. 12% throughput was not worth doubling
+  # latency on the IO-bound jobs, a 2.6x spread on identical work, and 36
+  # breaches of the threshold at which this host historically fell over.
+  #
+  # If more throughput is wanted, reduce IO per job (layer caching, fewer image
+  # rebuilds in the smoke test) or give dind a lower bfq weight so CI yields to
+  # interactive work. Do not just add slots.
+  capacity: 2
   timeout: 1h
   shutdown_timeout: 10m
   # Injected into every JOB container (not the runner itself — the runner gets
