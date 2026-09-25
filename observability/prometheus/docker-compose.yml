@@ -1,6 +1,11 @@
 services:
   prometheus:
-    image: prom/prometheus:latest
+    # PINNED. `:latest` is now Prometheus 3.x, a MAJOR upgrade (flag removals,
+    # PromQL and UI changes). On 2026-09-25 a `docker compose pull` here fetched
+    # it, so a plain `up -d` would have performed that upgrade silently. Pinned
+    # to the version actually running. Bump deliberately, after reading the v3
+    # migration notes -- not by accident.
+    image: prom/prometheus:v2.53.4
     restart: unless-stopped
     extra_hosts:
       # Needed to scrape nftables-exporter, which runs on host network
