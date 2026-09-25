@@ -40,6 +40,9 @@ services:
       # This makes ClickHouse consume less resources, which is useful for small setups.
       # https://clickhouse.com/docs/en/operations/tips#using-less-than-16gb-of-ram
       - ./clickhouse/low-resources.xml:/etc/clickhouse-server/config.d/low-resources.xml:ro
+      # Allows the native BACKUP engine, so borgmatic can archive a consistent
+      # copy instead of the raw running data directory. See backups.xml.
+      - ./clickhouse/backups.xml:/etc/clickhouse-server/config.d/backups.xml:ro
     ulimits:
       nofile:
         soft: 262144
