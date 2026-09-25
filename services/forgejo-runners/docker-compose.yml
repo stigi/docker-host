@@ -1,0 +1,140 @@
+# Forgejo Actions runner — single slot, socket-based, self-limiting.
+#
+# Rewritten 2026-09-16 after dind1-data reached 151 GB / 10.7M inodes with no
+# garbage collection of any kind. Four deliberate changes from the two-slot
+# design this replaces:
+#
+#  1. SOCKET, NOT TCP. dockerd listens on a unix socket in a shared volume
+#     instead of tcp://0.0.0.0:2375 --tls=false. Nothing listens on a port, so
+#     there is no API to reach and no TLS to configure or distribute to job
+#     containers. Strictly more closed than TLS-on-TCP, and simpler.
+#
+#  2. BOUNDED STORAGE. daemon.json caps the BuildKit cache and rotates job
+#     container logs. Without this, any topology regrows to 151 GB — that was
+#     the actual defect, not the number of daemons.
+#
+#  3. ONE SLOT, NOT TWO. The box has ~150-250 combined IOPS on 7200 RPM disks;
+#     two concurrent e2e jobs contend rather than parallelise. Two dinds also
+#     reserved 20 GB of a 32 GB box that runs ~51 other containers.
+#     To go back to two slots: duplicate dind/runner with a -2 suffix, give
+#     each its own network and its own dind-data/dind-sock/ws volumes.
+#
+#  4. NO SWAP. memswap_limit == mem_limit. A job that exceeds the limit should
+#     be OOM-killed — a clear, attributable failure — rather than thrash the
+#     disks and take the other 51 containers down with it. The previous
+#     memswap_limit: 16g against mem_limit: 10g permitted 6 GB of swap, which
+#     is the exact load profile that made SSH unreachable on 2026-08-31.
+
+# Project name pinned explicitly. Compose otherwise derives it from the
+# DIRECTORY NAME, and the volumes below are project-prefixed
+# (forgejo-runners_dind-data, _dind-sock, _ws). Moving or renaming this
+# directory without this line would make Compose create fresh, empty volumes
+# and silently orphan the dind image cache and the workspace.
+# State (runner-1: registration token + act cache, ~650MB) deliberately stays
+# at /home/trails/forgejo-runners/runner-1 and is referenced ABSOLUTELY below.
+# Only the config lives in this repo; a relative ./runner-1 would now resolve
+# here and the runner would come up unregistered.
+name: forgejo-runners
+
+services:
+  dind:
+    image: docker:27-dind
+    container_name: trails-runner-dind
+    privileged: true
+    restart: unless-stopped
+    # --group 1002 makes the socket root:1002 so the runner (1002:1002) can use
+    # it without running as root. Without this the runner gets EACCES on start.
+    command:
+      - dockerd
+      - --host=unix:///var/run/docker-shared/docker.sock
+      - --group=1002
+    mem_limit: 15g
+    memswap_limit: 15g
+    # 6, not 4: with runner capacity: 2 this dind serves two concurrent
+    # jobs, and measurement on 2026-09-22 showed the workload is
+    # CPU-bound once past checkout (cpu pressure 13-61 while io fell to
+    # 7-13). The old two-slot setup gave 2 concurrent jobs 6 cores
+    # (3 x cpus: 2 since capacity went to 3); 4 here was sized for capacity: 1 and under-served
+    # concurrency. Leaves 2 of 8 cores for the box's other ~47 containers.
+    cpus: 6
+    volumes:
+      - dind-data:/var/lib/docker
+      - dind-sock:/var/run/docker-shared
+      - ws:/workspace
+      - ./daemon.json:/etc/docker/daemon.json:ro
+    healthcheck:
+      test: ["CMD", "docker", "--host=unix:///var/run/docker-shared/docker.sock", "info"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks: [slot]
+
+  # One-shot, idempotent. An existing /data/.runner is authoritative and is
+  # left alone, so rebuilding the stack never re-registers or orphans a runner
+  # in Forgejo. Only if .runner is absent does it register — which is what
+  # makes this stack reproducible from nothing.
+  runner-register:
+    image: data.forgejo.org/forgejo/runner:13
+    container_name: trails-runner-register
+    restart: "no"
+    user: "1002:1002"
+    working_dir: /data
+    depends_on:
+      dind:
+        condition: service_healthy
+    environment:
+      FORGEJO_INSTANCE_URL: ${FORGEJO_INSTANCE_URL:-https://git.ullrich.is}
+      FORGEJO_RUNNER_TOKEN: ${FORGEJO_RUNNER_TOKEN:-}
+      RUNNER_NAME: ${RUNNER_NAME:-trails-runner-1}
+    volumes:
+      - /home/trails/forgejo-runners/runner-1:/data
+      - ./register-init.sh:/register-init.sh:ro
+    entrypoint: ["/bin/sh", "/register-init.sh"]
+    networks: [slot]
+
+  runner:
+    image: data.forgejo.org/forgejo/runner:13
+    container_name: trails-runner
+    restart: unless-stopped
+    user: "1002:1002"
+    working_dir: /data
+    command: [forgejo-runner, daemon, --config, /etc/forgejo-runner/config.yml]
+    mem_limit: 1g
+    cpus: 0.5
+    depends_on:
+      dind:
+        condition: service_healthy
+      runner-register:
+        condition: service_completed_successfully
+    environment:
+      DOCKER_HOST: unix:///var/run/docker-shared/docker.sock
+    volumes:
+      - /home/trails/forgejo-runners/runner-1:/data
+      - ./config.yml:/etc/forgejo-runner/config.yml:ro
+      - dind-sock:/var/run/docker-shared
+      - ws:/workspace
+    networks:
+      slot:
+        # Pinned: config.yml sets cache.host to this address. Job containers
+        # run on the dind daemon and cannot resolve Compose service names, so
+        # the cache server must be reachable at a fixed IP.
+        ipv4_address: 10.44.240.10
+
+networks:
+  slot:
+    ipam:
+      config:
+        # Chosen 2026-09-22 after checking every allocation on this host:
+        #   - outside 172.17-172.31 and 192.168.0.0/16 (Docker's default
+        #     pools), so Docker can never auto-allocate an overlapping net
+        #   - outside 172.17.0.0/16, which is dind's own internal docker0
+        #   - outside 10.0.0.0/16, the Hetzner vSwitch VLAN on enp4s0.4000
+        # The original draft used 172.31.240.0/24, which sits INSIDE the
+        # caddy network's 172.31.0.0/16 and would have collided.
+        - subnet: 10.44.240.0/24
+
+volumes:
+  dind-data:
+  dind-sock:
+  ws:
