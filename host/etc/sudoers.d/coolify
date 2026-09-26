@@ -1,0 +1,3 @@
+#coolify ALL=(ALL) NOPASSWD:/usr/bin/docker
+#coolify ALL=(ALL) NOPASSWD:ALL
+#coolify ALL=(ALL) NOPASSWD:/usr/bin/docker, /usr/bin/systemctl

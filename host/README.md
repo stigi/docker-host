@@ -83,10 +83,20 @@ manager — confirmed present as of 2026-09-26:
   - the borg repository passphrase
   - an exported copy of the git-secret GPG private key
 
-Both matter because the on-host copies are circular: `/etc/borgmatic/passphrase`
-is backed up *into* the repo it unlocks, and the GPG key that decrypts this
-repo's 57 git-secret files lives in `/home/docker-host/.gnupg` on this host.
-Lose the box without those offsite copies and the backups are unreadable.
+The borg passphrase matters most, and is circular on its own:
+`/etc/borgmatic/passphrase` is backed up *into* the repo it unlocks, so the
+on-host copy is worthless precisely when you need it.
+
+git-secret is in better shape than it first appears. `git secret whoknows`
+lists three identities, but they are two keys:
+
+    hi+gh@ullrich.is       ]  two uids on the SAME key, rsa3072/F078A095B5EDC374,
+    docker-host@ullrich.is ]  private half in /home/docker-host/.gnupg on THIS host
+    hi+github@ullrich.is      a SEPARATE key, private half NOT on this host
+
+So a second machine can already decrypt the 57 encrypted files without the
+offsite export. That is redundancy, not a substitute for it — both remaining
+copies are still things that can be lost at once.
 
 ## There is no apply script, on purpose
 
