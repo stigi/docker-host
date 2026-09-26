@@ -44,7 +44,6 @@
 /etc/apt/apt.conf.d/51-zebra-unattended.conf	644	root:root
 /etc/audit/audit.rules	640	root:root
 /etc/logrotate.d/borgmatic	644	root:root
-/etc/sudoers.d/coolify	440	root:root
 /etc/hosts.allow	644	root:root
 /etc/hosts.deny	644	root:root
 /etc/systemd/timesyncd.conf.d/hetzner.conf	644	root:root
