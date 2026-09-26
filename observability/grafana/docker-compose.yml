@@ -1,6 +1,14 @@
 services:
   grafana:
-    image: grafana/grafana:latest
+    # PINNED. Upgraded 11.6.0 -> 13.2.2 on 2026-09-25 (two majors). The database
+    # migration is ONE-WAY: 11.x cannot read the schema 13 writes. Pre-upgrade
+    # volume backup: /root/grafana-volume-pre-13-20260925.tar.gz, API exports in
+    # /root/grafana-pre-upgrade-20260925/.
+    #
+    # Not `:latest` on purpose -- alert rules, dashboards and the ntfy contact
+    # point's bearer token live in the grafana_storage volume, so an accidental
+    # major bump is a one-way change to state that is not in git.
+    image: grafana/grafana:13.2.2
     restart: always
     volumes:
       - ./grafana.ini:/etc/grafana/grafana.ini
