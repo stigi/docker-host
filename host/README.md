@@ -110,15 +110,29 @@ Not automated. This tree holds the *configuration*, not a provisioning tool —
 see "There is no apply script" above. What cannot be recovered from a file on
 this box, and so is written down here:
 
-**Disk / RAID layout** — recreated via Hetzner installimage, Ubuntu LTS,
-mdraid1 across both disks, LVM:
+**Disk / RAID layout** — do not retype this from memory: the authoritative
+spec is `installimage.conf`, tracked here, which is the actual file Hetzner's
+installimage used to build this machine:
 
-    PART /boot  ext3  512M   (mdraid)
-    PART lvm    vg0   all    (mdraid)
-    LV vg0 root  /     ext4   2T
-    LV vg0 swap  swap  swap   16G
-    LV vg0 tmp   /tmp  ext4   10G
-    LV vg0 home  /home ext4   720G
+    DRIVE1 /dev/sda
+    DRIVE2 /dev/sdb
+    SWRAID 1
+    SWRAIDLEVEL 1
+    BOOTLOADER grub
+    PART /boot  ext3   512M
+    PART lvm    vg0    all
+    LV vg0 root  /     ext4  2048G
+    LV vg0 swap  swap  swap    16G
+    LV vg0 tmp   /tmp  ext4    10G
+    LV vg0 home  /home ext4    all
+
+Note `home` is `all` (the remainder), not a fixed size — it currently resolves
+to ~708G. An earlier copy of this layout in the retired ansible tree recorded
+the *result* (720G) as if it were the spec.
+
+The original image was `Ubuntu-1810-cosmic-64-minimal`, installed 2019-02-27.
+This host has been upgraded in place ever since and now runs 26.04, which is
+worth knowing before assuming a rebuild would reproduce it exactly.
 
 **Reverse DNS (PTR)** for `176.9.150.227` / `2a01:4f8:160:33c7::2` is managed
 by hand in Hetzner Robot. Forward DNS for ullrich.is is Hetzner DNS.

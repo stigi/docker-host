@@ -47,3 +47,4 @@
 /etc/hosts.allow	644	root:root
 /etc/hosts.deny	644	root:root
 /etc/systemd/timesyncd.conf.d/hetzner.conf	644	root:root
+/installimage.conf	640	root:root
