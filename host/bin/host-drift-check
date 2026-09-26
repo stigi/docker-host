@@ -43,7 +43,9 @@ done < "$MANIFEST"
 # files tracked under host/ but absent from the manifest would never be checked
 while IFS= read -r copy; do
   rel="/${copy#$HOST_DIR/}"
-  case "$rel" in /bin/*|/MANIFEST.tsv|/README.md) continue;; esac
+  # *.secret are git-secret ciphertext, not mirrors of a host path: the
+  # plaintext beside them is what the manifest tracks.
+  case "$rel" in /bin/*|/MANIFEST.tsv|/README.md|*.secret) continue;; esac
   grep -qF "$(printf '%s\t' "$rel")" "$MANIFEST" || { printf 'NOT IN MANIFEST  %s (tracked but never checked)\n' "$rel"; drift=1; }
 done < <(find "$HOST_DIR" -type f -not -path "$HOST_DIR/bin/*" -not -name MANIFEST.tsv -not -name README.md)
 

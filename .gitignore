@@ -9,3 +9,4 @@ volumes
 
 # ingore testing
 testing
+host/etc/msmtprc

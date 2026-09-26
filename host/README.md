@@ -74,8 +74,18 @@ Re-run that scan after any significant system change; the set is not static.
 
 ## Secrets and recovery
 
-`/etc/msmtprc` is deliberately NOT tracked: it holds a plaintext SMTP password.
-If it is ever tracked it must go through git-secret, never in the clear.
+`/etc/msmtprc` holds a plaintext SMTP password, so it is tracked **encrypted**
+via git-secret: the repo contains `host/etc/msmtprc.secret`, and the plaintext
+`host/etc/msmtprc` is gitignored. It is encrypted to the same two keys as the
+other 57 secrets, one of which is not on this host.
+
+This has a consequence for the drift check. It compares the *plaintext* copy
+against `/etc/msmtprc`, so on a fresh clone it will report
+
+    MISSING IN REPO  /etc/msmtprc
+
+until you run `git secret reveal`. That is correct behaviour, not a bug — the
+check is telling you the working tree is not fully materialised.
 
 Recovery depends on two things that live OFF this machine, in a password
 manager — confirmed present as of 2026-09-26:

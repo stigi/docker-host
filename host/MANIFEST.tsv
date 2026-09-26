@@ -48,3 +48,4 @@
 /etc/hosts.deny	644	root:root
 /etc/systemd/timesyncd.conf.d/hetzner.conf	644	root:root
 /installimage.conf	640	root:root
+/etc/msmtprc	600	root:root
