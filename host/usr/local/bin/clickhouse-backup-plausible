@@ -1,0 +1,47 @@
+#!/bin/bash
+# Writes a consistent ClickHouse backup before borgmatic reads the filesystem.
+#
+# borgmatic has no ClickHouse hook, so the archive's only copy of the Plausible
+# analytics data used to be the raw /var/lib/clickhouse tree captured while the
+# server was running: MergeTree parts plus WAL, not crash-consistent. This runs
+# ClickHouse's native BACKUP into a directory inside the same volume, which is
+# already in the borgmatic source set -- so the consistent copy is archived
+# without changing the backup scope.
+#
+# Requires clickhouse/backups.xml (backups.allowed_disk), in the repo at
+# services/plausible/clickhouse/backups.xml.
+set -euo pipefail
+
+CONTAINER=plausible-plausible_events_db-1
+DB=plausible_events_db
+FILE=plausible_events_db.zip
+
+if ! docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null | grep -q true; then
+  echo "clickhouse-backup: $CONTAINER is not running" >&2
+  exit 1
+fi
+
+# Delete the previous file first. BACKUP refuses to overwrite, and a stale file
+# left behind by a failed run would otherwise be archived as if it were current.
+docker exec "$CONTAINER" sh -c "rm -f /var/lib/clickhouse/backups/$FILE"
+
+# Not a bare `out=$(...)`: under `set -e` a non-zero clickhouse-client would
+# kill the script at the assignment, losing the error text it just captured.
+if ! out=$(docker exec "$CONTAINER" clickhouse-client --query \
+  "BACKUP DATABASE $DB TO Disk('backups','$FILE')" 2>&1); then
+  echo "clickhouse-backup: BACKUP command failed: $out" >&2
+  exit 1
+fi
+
+if ! printf '%s' "$out" | grep -q BACKUP_CREATED; then
+  echo "clickhouse-backup: BACKUP did not report BACKUP_CREATED: $out" >&2
+  exit 1
+fi
+
+size=$(docker exec "$CONTAINER" sh -c "stat -c%s /var/lib/clickhouse/backups/$FILE" 2>/dev/null || echo 0)
+if [ "$size" -lt 1024 ]; then
+  echo "clickhouse-backup: backup file implausibly small ($size bytes)" >&2
+  exit 1
+fi
+
+echo "clickhouse-backup: $DB -> $FILE ($size bytes)"

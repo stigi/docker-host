@@ -1,0 +1,33 @@
+#!/bin/bash
+# Records the time of the last SUCCESSFUL borgmatic create, for the
+# node_exporter textfile collector.
+#
+# This closes the gap that `after: error` cannot: that hook only fires when
+# borgmatic actually runs and fails. If the timer stops, the unit fails to
+# start, or the host is down, nothing fires at all and the backups go quietly
+# stale -- the same silent-failure shape as the mdadm failure that went
+# unnoticed for 16 days.
+#
+# Must be wired with `states: [finish]` in the borgmatic command hook. Without
+# it borgmatic runs "after" hooks on failure too (filter_hooks treats an unset
+# `states` as matching every state), which would refresh this timestamp after a
+# FAILED backup and permanently suppress the alert.
+set -euo pipefail
+
+DIR=/var/lib/node_exporter/textfile_collector
+OUT="$DIR/borgmatic.prom"
+TMP="$OUT.$$"
+
+mkdir -p "$DIR"
+
+cat > "$TMP" <<METRICS
+# HELP borgmatic_last_success_timestamp_seconds Unix time of the last successful borgmatic create.
+# TYPE borgmatic_last_success_timestamp_seconds gauge
+borgmatic_last_success_timestamp_seconds $(date +%s)
+METRICS
+
+# Atomic: node_exporter may be mid-scrape, and a half-written file would be
+# parsed as a broken metric rather than simply skipped.
+chmod 644 "$TMP"
+mv -f "$TMP" "$OUT"
+echo "borgmatic-metrics: wrote $OUT"

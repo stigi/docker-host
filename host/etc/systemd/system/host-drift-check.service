@@ -1,0 +1,12 @@
+[Unit]
+Description=Check tracked host config in the repo against the live filesystem
+Documentation=file:///home/docker-host/repo/host/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/host-drift-notify
+# Reads mode-600 files (/etc/borgmatic/config.yaml, /etc/docker/daemon.json),
+# so this runs as root. It only reads and compares; it never writes to /etc.
+User=root
+Nice=19
+IOSchedulingClass=idle

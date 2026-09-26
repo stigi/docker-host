@@ -1,0 +1,17 @@
+# path<TAB>mode<TAB>owner:group   -- generated 2026-09-26
+/etc/borgmatic/config.yaml	600	root:root
+/etc/smartd.conf	644	root:root
+/etc/docker/daemon.json	600	root:root
+/etc/systemd/journald.conf	644	root:root
+/etc/udev/rules.d/60-bfq-rotational.rules	644	root:root
+/etc/modules-load.d/bfq.conf	644	root:root
+/usr/local/bin/borgmatic-metrics	755	root:root
+/usr/local/bin/borgmatic-notify	755	root:root
+/usr/local/bin/clickhouse-backup-plausible	755	root:root
+/usr/local/bin/mdadm-notify	755	root:root
+/usr/local/bin/smartd-notify	755	root:root
+/usr/local/bin/host-drift-notify	755	root:root
+/etc/systemd/system/host-drift-check.service	644	root:root
+/etc/systemd/system/host-drift-check.timer	644	root:root
+/etc/systemd/system/forgejo-runner-prune.service	644	root:root
+/etc/systemd/system/forgejo-runner-prune.timer	644	root:root

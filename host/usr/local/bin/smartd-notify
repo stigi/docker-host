@@ -1,0 +1,18 @@
+#!/bin/bash
+# Pushes smartd warnings to ntfy. Mirrors /usr/local/bin/mdadm-notify.
+#
+# Invoked by smartd via /usr/share/smartmontools/smartd-runner, which
+# run-parts's /etc/smartmontools/run.d. smartd passes everything in the
+# environment as SMARTD_*; the full message body is ALSO on stdin, but
+# 10mail consumes stdin, so read the environment only -- otherwise
+# whichever script runs first starves the other.
+TOPIC="https://ntfy.ullrich.is/zebra"
+curl -fsS --max-time 20 -o /dev/null \
+  -H "Authorization: Bearer $(cat /root/.ntfy-token)" \
+  -H "Title: smartd: ${SMARTD_FAILTYPE:-alert} on ${SMARTD_DEVICESTRING:-unknown}" \
+  -H "Priority: urgent" \
+  -H "Tags: rotating_light" \
+  -d "${SMARTD_FULLMESSAGE:-${SMARTD_MESSAGE:-smartd alert}}
+
+host=$(hostname)" \
+  "$TOPIC"

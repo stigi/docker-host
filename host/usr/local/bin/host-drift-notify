@@ -1,0 +1,37 @@
+#!/bin/bash
+# Runs the host/ drift check and pushes to ntfy only when there IS drift.
+# Mirrors /usr/local/bin/borgmatic-notify, mdadm-notify and smartd-notify.
+#
+# Why: host/ in the repo holds COPIES of /etc and /usr/local/bin config, not the
+# live files. Copies rot silently -- someone edits smartd.conf on the box and the
+# repo quietly stops describing reality. This makes that loud, on a schedule,
+# instead of a surprise during a rebuild.
+#
+# Exits 0 even when drift is found: the notification IS the outcome, and a failed
+# unit would additionally need someone to be watching systemd, which is the exact
+# assumption that let the mdadm degradation run for 16 days.
+CHECK=/home/docker-host/repo/host/bin/host-drift-check
+TOPIC="https://ntfy.ullrich.is/zebra"
+
+if [ ! -x "$CHECK" ]; then
+  out="host-drift-check missing or not executable at $CHECK"
+  rc=2
+else
+  out=$("$CHECK" 2>&1); rc=$?
+fi
+
+[ "$rc" -eq 0 ] && { echo "$out"; exit 0; }
+
+echo "$out"
+curl -fsS --max-time 20 -o /dev/null \
+  -H "Authorization: Bearer $(cat /root/.ntfy-token)" \
+  -H "Title: host config drift on $(hostname -s)" \
+  -H "Priority: default" \
+  -H "Tags: warning" \
+  -d "$(printf '%s' "$out" | head -c 1200)
+
+Repo copies under host/ no longer match the live host.
+Reconcile, then update host/MANIFEST.tsv if a mode changed.
+host=$(hostname)" \
+  "$TOPIC"
+exit 0

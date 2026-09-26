@@ -1,0 +1,10 @@
+#!/bin/bash
+# mdadm invokes: $1=event  $2=md-device  $3=component-device
+TOPIC="https://ntfy.ullrich.is/zebra"
+curl -fsS --max-time 20 \
+  -H "Authorization: Bearer $(cat /root/.ntfy-token)" \
+  -H "Title: mdadm: $1 on $2" \
+  -H "Priority: urgent" \
+  -H "Tags: rotating_light" \
+  -d "event=$1 array=$2 device=${3:-n/a} host=$(hostname)" \
+  "$TOPIC"
