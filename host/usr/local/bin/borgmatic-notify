@@ -1,0 +1,20 @@
+#!/bin/bash
+# Pushes borgmatic failures to ntfy. Mirrors /usr/local/bin/mdadm-notify and
+# /usr/local/bin/smartd-notify.
+#
+# Wired to borgmatic's `after: error` command hook. This matters more than it
+# looks: once a database's live data directory is excluded from the backup in
+# favour of a streamed pg_dump, a failing dump means that database has NO
+# backup at all. Previously this hook was `echo` into the journal -- the same
+# shape as the mdadm failure that went unnoticed for 16 days.
+TOPIC="https://ntfy.ullrich.is/zebra"
+curl -fsS --max-time 20 -o /dev/null \
+  -H "Authorization: Bearer $(cat /root/.ntfy-token)" \
+  -H "Title: borgmatic FAILED on $(hostname -s)" \
+  -H "Priority: urgent" \
+  -H "Tags: rotating_light" \
+  -d "borgmatic run failed${1:+ during: $1}
+
+Check: journalctl -u borgmatic.service -n 50
+host=$(hostname)" \
+  "$TOPIC"

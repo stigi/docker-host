@@ -1,0 +1,16 @@
+# Use the bfq IO scheduler on rotational disks.
+#
+# Why: this box has 2x 7200 RPM SATA disks (~150-250 combined IOPS) shared
+# between ~49 containers and CI. Measured 2026-09-23 with two concurrent CI
+# jobs: sdb at 79% utilisation, io pressure full avg60 ~38. Under that load
+# mq-deadline lets a throughput-heavy writer starve interactive IO -- during
+# the 2026-08-31 incident SSH became unreachable while ping still answered.
+# bfq gives interactive processes a fair share, and it is what makes `ionice`
+# actually do anything (the forgejo-runner-prune unit already sets
+# IOSchedulingClass=idle, which mq-deadline ignores).
+#
+# KERNEL=="sd[a-z]" deliberately, NOT a bare ATTR{queue/rotational}=="1":
+# on this host dm-0..dm-3 (LVM on top of md1) and loop0..loop17+ (snap mounts)
+# ALSO report rotational=1, and setting a scheduler on those is at best
+# pointless. Physical disks only.
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"

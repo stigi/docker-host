@@ -1,0 +1,17 @@
+[Unit]
+Description=Weekly host config drift check
+
+[Timer]
+# Sunday 16:00. Clear of every other scheduled IO job on this box:
+#   borgmatic          00:00-03:00 (daily + RandomizedDelaySec=3h)
+#   smartd short test  04:00 daily
+#   smartd long test   sda Sat 05:00 (~6.6h), sdb Sun 05:00 (ends ~12:30)
+#   forgejo runner prune  Sun 14:00 (+30m jitter)
+# The check itself is trivial -- 11 file comparisons -- but staying inside the
+# documented schedule keeps the whole picture readable.
+OnCalendar=Sun 16:00
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

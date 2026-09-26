@@ -1,0 +1,259 @@
+# borgmatic configuration for zebra.ullrich.is
+#
+# Migrated 2026-09-21 off the deprecated 1.x schema:
+#   - location:/storage:/retention:/hooks: sections flattened to global scope
+#   - before_*/after_*/on_error hooks -> commands:
+#   - bare "user@host:repo" repository -> ssh:// URL
+# Backup SCOPE IS UNCHANGED: identical source_directories, exclude_patterns
+# and retention to the pre-migration config.
+#
+# consistency: was entirely commented out before the migration, so the default
+# checks (repository, archives) applied and still apply. Nothing was dropped.
+
+source_directories:
+    - /home
+    - /etc
+    - /root
+    - /var/log/syslog*
+    - /var
+
+repositories:
+    # Same repository as before the migration. Borg itself reports this exact
+    # URL as the Location for the previous bare "xzg56626@...:repo" form.
+    # Repository ID 2e6aaf21492e5b29b483b36918e82e5f3c4909ea01e152f8c62609bb07611d50
+    - path: ssh://xzg56626@xzg56626.repo.borgbase.com/./repo
+      label: borgbase
+
+exclude_patterns:
+    - /swap.img
+    - '*.pyc'
+    - '*/.vim*.tmp'
+    - /home/*/.cache
+    - /root/.cache
+    - /root/.npm
+    - /var/cache
+    - /var/tmp
+    - /var/backups
+    - /var/lib/snapd
+
+    # trails.cool derived data — refetched from brouter.de / regenerated
+    - /home/trails/brouter/segments
+    - /home/trails/brouter/poi-extract
+
+    # audiobookshelf: podcast episodes are re-downloadable from RSS feeds
+    - /home/docker-host/repo/services/audiobookshelf/volumes/podcasts
+
+    # Docker + containerd derived trees; these churn on every CI run
+    - /var/lib/docker/overlay2
+    - /var/lib/docker/image
+    - /var/lib/docker/buildkit
+    - /var/lib/docker/containers
+    - /var/lib/docker/tmp
+    - /var/lib/containerd
+
+    # Forgejo CI runners — DinD overlays + workspaces churn on every job.
+    # Actual volume names: forgejo-runners_{dind1,dind2}-data, forgejo-runners_ws{1,2}
+    - /home/trails/forgejo-runners
+    - /var/lib/docker/volumes/forgejo-runners_*
+
+    # Mastodon Postgres data directory. Superseded by the streamed pg_dump
+    # in postgresql_databases: below, which was restore-tested on 2026-09-21
+    # into a throwaway postgres:14-alpine (121/121 tables, 0 orphaned rows,
+    # 0 invalid indexes, 156 foreign keys) before this line was added.
+    # Excluding it removes the hot copy of a running cluster AND its 16 MB
+    # pg_wal segments, which is what produced Borg's "file changed while we
+    # backed it up" warning.
+    - /home/docker-host/repo/services/mastodon/volumes/postgresql
+
+    # Authelia Postgres data directory. Superseded by the streamed pg_dump in
+    # postgresql_databases:, restore-tested 2026-09-21 into a throwaway
+    # postgres:15 (25/25 tables, every row count identical including
+    # totp_configurations and webauthn_credentials, 0 invalid indexes,
+    # 15 foreign keys) before this line was added.
+    - /home/docker-host/repo/core/authelia/volumes/postgres
+
+    # cal.com and Plausible Postgres data directories. Superseded by the
+    # streamed pg_dumps in postgresql_databases:, restore-tested 2026-09-24
+    # into throwaway postgres:16 containers -- cal 80 tables / 515 rows and
+    # Plausible 41 tables / 14,341 rows, every table matching exactly,
+    # 0 invalid indexes, 138 and 40 foreign keys.
+    - /var/lib/docker/volumes/cal_database-data
+    - /var/lib/docker/volumes/plausible_db-data
+
+    # NOT excluded: /var/lib/docker/volumes/plausible_event-data. That is
+    # Plausible's ClickHouse store and borgmatic has no ClickHouse hook, so
+    # it remains a hot copy. Deliberate -- analytics events are the one
+    # dataset here where a torn copy is tolerable. Do not add it below
+    # without first arranging a dump for it.
+
+    # Docker plugin container logs — live json.log files that rewrite during
+    # the backup (the remaining "file changed while we backed it up"
+    # warnings). Derived, negligible restore value.
+    - /var/lib/docker/plugins/*/rootfs/var/log
+
+    # systemd journal: bulky, rotating, low restore value
+    - /var/log/journal
+
+exclude_caches: true
+
+encryption_passcommand: cat /etc/borgmatic/passphrase
+
+ssh_command: ssh -i /root/.ssh/id_borgbase
+
+keep_daily: 2
+keep_weekly: 2
+keep_monthly: 3
+keep_yearly: 1
+
+# Migrated verbatim from the old hooks: section. These are the stock sample
+# echoes and do nothing beyond producing log lines; kept as-is so this
+# migration changes no behaviour. Safe to delete if you want quieter logs.
+# Streamed pg_dump of the Mastodon cluster, added 2026-09-21.
+#
+# WHY: the live data directory was being copied hot (including 16 MB pg_wal
+# segments rewriting mid-backup), which is what produced Borg's "file changed
+# while we backed it up" warning. A non-atomic copy of a running cluster is not
+# reliably restorable.
+#
+# Commands are overridden to run INSIDE the container, which means:
+#   - no postgresql-client needed on the host (there is none)
+#   - pg_dump is always version-matched to the server (14.20 here), so a future
+#     postgres:17 image cannot silently break it
+#   - nothing is published to the host and no ports are exposed
+# borgmatic still streams the dump straight into the archive, so `borgmatic
+# restore` remains a first-class operation.
+#
+# name: postgres -- Mastodon's DB_NAME is literally "postgres" (772 MB).
+# NOTE: pg_dump of a single database does NOT include roles/globals. Immaterial
+# here (trust auth, sole "postgres" superuser, restores into a fresh
+# postgres:14-alpine which already has it), but worth knowing.
+# `name: all` is NOT usable: it would invoke pg_dumpall on the host, and
+# borgmatic has no pg_dumpall_command override (only pg_dump/psql/pg_restore).
+postgresql_databases:
+    - name: postgres
+      label: mastodon
+      format: custom
+      hostname: 127.0.0.1
+      username: postgres
+      pg_dump_command: docker exec mastodon-db-1 pg_dump
+      psql_command: docker exec -i mastodon-db-1 psql
+      pg_restore_command: docker exec -i mastodon-db-1 pg_restore
+
+    # Authelia. Holds TOTP enrolments (totp_configurations), OAuth2/OIDC
+    # sessions and the user identity tables -- not reconstructable if lost.
+    # Server is postgres:15; user is 'authelia', there is no 'postgres' role.
+    # pg_hba inside the container is trust for local + 127.0.0.1, so no
+    # password is needed here; external connections still require
+    # scram-sha-256 via the POSTGRES_PASSWORD_FILE secret.
+    - name: authelia
+      label: authelia
+      format: custom
+      hostname: 127.0.0.1
+      username: authelia
+      pg_dump_command: docker exec authelia-database-1 pg_dump
+      psql_command: docker exec -i authelia-database-1 psql
+      pg_restore_command: docker exec -i authelia-database-1 pg_restore
+
+    # cal.com. Bookings, event types, OAuth credentials for connected
+    # calendars -- not reconstructable from anywhere else.
+    # The database name is a generated hex string, not "cal".
+    - name: a1811e86f410ea1716d366c07cc6ed42
+      label: cal
+      format: custom
+      hostname: 127.0.0.1
+      username: cal_pg
+      pg_dump_command: docker exec cal-database-1 pg_dump
+      psql_command: docker exec -i cal-database-1 psql
+      pg_restore_command: docker exec -i cal-database-1 pg_restore
+
+    # Plausible's RELATIONAL database only (sites, users, settings, API keys).
+    # The analytics events themselves live in ClickHouse
+    # (plausible-plausible_events_db-1), for which borgmatic has NO hook -- that
+    # volume is still a hot copy. Accepted: analytics are the one dataset here
+    # where a torn copy is tolerable, and it is a deliberate choice rather than
+    # an oversight.
+    # No POSTGRES_USER is set on the container, so the superuser is "postgres".
+    - name: plausible_db
+      label: plausible
+      format: custom
+      hostname: 127.0.0.1
+      username: postgres
+      pg_dump_command: docker exec plausible-plausible_db-1 pg_dump
+      psql_command: docker exec -i plausible-plausible_db-1 psql
+      pg_restore_command: docker exec -i plausible-plausible_db-1 pg_restore
+
+
+commands:
+    - before: everything
+      when: [create]
+      run:
+        - echo "Starting actions."
+    - after: everything
+      when: [create]
+      run:
+        - echo "Completed actions."
+    - before: action
+      when: [create]
+      run:
+        - echo "Starting a backup."
+    # ClickHouse has no borgmatic hook of its own, so this stands in for one.
+    # It writes a native BACKUP into a directory inside the event-data volume,
+    # which is already in the source set, so the archive gains a consistent copy
+    # without the backup scope changing. Without it the only copy is the raw
+    # /var/lib/clickhouse tree read while the server is running: MergeTree parts
+    # plus WAL, not crash-consistent and not guaranteed to restore.
+    # Needs clickhouse/backups.xml (backups.allowed_disk) in the plausible repo.
+    # A non-zero exit fails the run, which triggers the `after: error` ntfy push.
+    - before: action
+      when: [create]
+      run:
+        - /usr/local/bin/clickhouse-backup-plausible
+    - after: action
+      when: [create]
+      run:
+        - echo "Finished a backup."
+    # Backup freshness for Prometheus. `after: error` below only fires when
+    # borgmatic RUNS and fails; a stopped timer, a failed unit or a dead host
+    # is silent. This publishes a timestamp that a Grafana alert watches, so
+    # absence of success is itself alertable.
+    #
+    # states: [finish] is LOAD-BEARING. borgmatic's filter_hooks treats an
+    # unset `states` as matching every state, so without it this would also run
+    # after a FAILED create, refresh the timestamp, and permanently suppress
+    # the alert it exists to raise.
+    - after: action
+      when: [create]
+      states: [finish]
+      run:
+        - /usr/local/bin/borgmatic-metrics
+    - before: action
+      when: [prune]
+      run:
+        - echo "Starting pruning."
+    - after: action
+      when: [prune]
+      run:
+        - echo "Finished pruning."
+    - before: action
+      when: [check]
+      run:
+        - echo "Starting checks."
+    - after: action
+      when: [check]
+      run:
+        - echo "Finished checks."
+    - before: action
+      when: [extract]
+      run:
+        - echo "Starting extracting."
+    - after: action
+      when: [extract]
+      run:
+        - echo "Finished extracting."
+    # Pushes to ntfy. Was `echo` into the journal, which is the same shape as
+    # the mdadm failure that went unnoticed for 16 days. This is the hook that
+    # makes it safe to exclude a live Postgres data directory in favour of a
+    # streamed dump: if the dump fails, the run fails, and you get told.
+    - after: error
+      run:
+        - /usr/local/bin/borgmatic-notify "{configuration_filename}"

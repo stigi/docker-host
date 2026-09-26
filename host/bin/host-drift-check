@@ -1,0 +1,55 @@
+#!/bin/bash
+# Compare the tracked copies under host/ against the live files on this box.
+#
+# Why this exists: copying config into a repo creates a SECOND source of truth.
+# Without a check, the copies rot and "clean repo" starts to mean nothing. This
+# makes drift loud instead of silent.
+#
+# Run as root: some tracked files are mode 600 (borgmatic config, daemon.json).
+#
+# Exit 0 = repo matches the host. Exit 1 = drift. Exit 2 = cannot run.
+set -uo pipefail
+
+HOST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MANIFEST="$HOST_DIR/MANIFEST.tsv"
+[ -r "$MANIFEST" ] || { echo "cannot read $MANIFEST" >&2; exit 2; }
+
+drift=0; checked=0; missing=0
+while IFS=$'\t' read -r path mode owner; do
+  case "$path" in ''|\#*) continue;; esac
+  copy="$HOST_DIR/${path#/}"
+  checked=$((checked+1))
+
+  if [ ! -e "$path" ]; then
+    printf 'MISSING ON HOST  %s\n' "$path"; drift=1; missing=$((missing+1)); continue
+  fi
+  if [ ! -e "$copy" ]; then
+    printf 'MISSING IN REPO  %s\n' "$path"; drift=1; missing=$((missing+1)); continue
+  fi
+  if ! [ -r "$path" ]; then
+    printf 'UNREADABLE       %s (run as root)\n' "$path"; drift=1; continue
+  fi
+
+  if ! cmp -s "$path" "$copy"; then
+    printf 'CONTENT DIFFERS  %s\n' "$path"
+    diff -u "$copy" "$path" 2>/dev/null | head -12 | sed 's/^/    /'
+    drift=1
+  fi
+  actual_mode=$(stat -c%a "$path"); actual_owner=$(stat -c%U:%G "$path")
+  [ "$actual_mode" = "$mode" ]   || { printf 'MODE DIFFERS     %s  manifest=%s live=%s\n' "$path" "$mode" "$actual_mode"; drift=1; }
+  [ "$actual_owner" = "$owner" ] || { printf 'OWNER DIFFERS    %s  manifest=%s live=%s\n' "$path" "$owner" "$actual_owner"; drift=1; }
+done < "$MANIFEST"
+
+# files tracked under host/ but absent from the manifest would never be checked
+while IFS= read -r copy; do
+  rel="/${copy#$HOST_DIR/}"
+  case "$rel" in /bin/*|/MANIFEST.tsv|/README.md) continue;; esac
+  grep -qF "$(printf '%s\t' "$rel")" "$MANIFEST" || { printf 'NOT IN MANIFEST  %s (tracked but never checked)\n' "$rel"; drift=1; }
+done < <(find "$HOST_DIR" -type f -not -path "$HOST_DIR/bin/*" -not -name MANIFEST.tsv -not -name README.md)
+
+if [ "$drift" -eq 0 ]; then
+  echo "OK: $checked tracked file(s) match the host."
+else
+  echo "DRIFT: $checked checked, differences above ($missing missing)."
+fi
+exit $drift

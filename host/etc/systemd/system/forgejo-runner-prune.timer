@@ -1,0 +1,15 @@
+[Unit]
+Description=Weekly prune of Forgejo runner dind storage
+
+[Timer]
+# Sunday 14:00. Chosen to avoid every other scheduled IO job on this box:
+#   borgmatic          00:00-03:00 (daily + RandomizedDelaySec=3h, ~15 min)
+#   smartd short test  04:00 daily (~1 min)
+#   smartd long test   sda Sat 05:00 (~6.6h), sdb Sun 05:00 (~7.5h, ends ~12:30)
+# 14:00 Sunday is clear of all of them.
+OnCalendar=Sun 14:00
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target
