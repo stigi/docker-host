@@ -1,0 +1,48 @@
+#!/bin/bash
+# Writes a CONSISTENT copy of Forgejo's SQLite database before borgmatic runs.
+#
+# Why: gitea.db is 124MB with a ~90MB WAL and is written to constantly. Borg
+# copying it hot gives no consistency guarantee -- borgmatic logs
+# "gitea.db-wal: file changed while we backed it up" on essentially every run.
+# SQLite usually survives a raw db+wal copy, but "usually" is not a backup
+# strategy for the box's git server, CI and issue tracker.
+#
+# `.backup` uses SQLite's online backup API: it takes a proper snapshot of a
+# live database, unlike `cp`. The result is a single file with no separate WAL.
+#
+# Same shape as clickhouse-backup-plausible and the four postgresql_databases
+# hooks. The live gitea.db / -wal / -shm are excluded from the archive in favour
+# of this file.
+set -euo pipefail
+
+CONTAINER=forgejo-forgejo-1
+SRC=/data/gitea/gitea.db
+DST=/data/gitea/gitea.db.backup     # bind-mounted, so it lands in the archive
+
+if ! docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null | grep -q true; then
+  echo "forgejo-db-backup: $CONTAINER is not running" >&2
+  exit 1
+fi
+
+# Remove the previous copy first: a stale one left by a failed run would be
+# archived as though it were current.
+docker exec "$CONTAINER" sh -c "rm -f '$DST' '$DST-journal' '$DST-wal' '$DST-shm'"
+
+if ! out=$(docker exec "$CONTAINER" sqlite3 "$SRC" ".backup '$DST'" 2>&1); then
+  echo "forgejo-db-backup: .backup failed: $out" >&2
+  exit 1
+fi
+
+check=$(docker exec "$CONTAINER" sqlite3 "$DST" "PRAGMA integrity_check;" 2>&1 | head -1)
+if [ "$check" != "ok" ]; then
+  echo "forgejo-db-backup: integrity_check on the copy returned: $check" >&2
+  exit 1
+fi
+
+size=$(docker exec "$CONTAINER" sh -c "stat -c%s '$DST'" 2>/dev/null || echo 0)
+if [ "$size" -lt 1048576 ]; then
+  echo "forgejo-db-backup: copy implausibly small ($size bytes)" >&2
+  exit 1
+fi
+
+echo "forgejo-db-backup: gitea.db -> gitea.db.backup ($size bytes, integrity ok)"

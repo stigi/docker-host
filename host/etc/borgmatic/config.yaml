@@ -52,9 +52,25 @@ exclude_patterns:
     - /var/lib/containerd
 
     # Forgejo CI runners — DinD overlays + workspaces churn on every job.
-    # Actual volume names: forgejo-runners_{dind1,dind2}-data, forgejo-runners_ws{1,2}
-    - /home/trails/forgejo-runners
+    # Volume names as of the 2026-09-25 single-slot rewrite:
+    #   forgejo-runners_dind-data   docker image/layer cache for CI
+    #   forgejo-runners_ws          job workspaces
+    #   forgejo-runners_dind-sock   socket only
+    #   forgejo-runners_runner-state  .runner registration + act cache
+    # NOTE: runner-state holds the ONLY copy of the runner's registration token.
+    # This wildcard was written for the churn volumes; the 2026-09-27 migration
+    # to a named volume brought the registration inside its reach. That is
+    # accepted: re-registering is a documented two-minute job (see the error
+    # message in services/forgejo-runners/register-init.sh), and the alternative
+    # is archiving a live credential plus a multi-GB act cache nightly.
     - /var/lib/docker/volumes/forgejo-runners_*
+    # Forgejo's live SQLite DB. Replaced in the archive by gitea.db.backup,
+    # written by the forgejo-db-backup hook above. Excluding the WAL and SHM
+    # matters as much as the DB: restoring a db without its matching wal is
+    # worse than restoring a consistent snapshot.
+    - /home/docker-host/repo/services/forgejo/volumes/forgejo/gitea/gitea.db
+    - /home/docker-host/repo/services/forgejo/volumes/forgejo/gitea/gitea.db-wal
+    - /home/docker-host/repo/services/forgejo/volumes/forgejo/gitea/gitea.db-shm
 
     # Mastodon Postgres data directory. Superseded by the streamed pg_dump
     # in postgresql_databases: below, which was restore-tested on 2026-09-21
@@ -208,6 +224,16 @@ commands:
       when: [create]
       run:
         - /usr/local/bin/clickhouse-backup-plausible
+    # Forgejo runs on SQLite. gitea.db is ~124MB with a ~90MB WAL and is written
+    # constantly, so borg copying it hot gives no consistency guarantee -- every
+    # run logged "gitea.db-wal: file changed while we backed it up". This takes a
+    # proper snapshot via SQLite's online backup API into gitea.db.backup, and
+    # the live db/-wal/-shm are excluded below in its favour.
+    # A non-zero exit fails the run, which triggers the `after: error` ntfy push.
+    - before: action
+      when: [create]
+      run:
+        - /usr/local/bin/forgejo-db-backup
     - after: action
       when: [create]
       run:

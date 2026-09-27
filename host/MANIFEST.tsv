@@ -54,3 +54,4 @@
 /root/.ntfy-token	600	root:root
 /root/.grafana-admin-password	600	root:root
 /etc/borgmatic/passphrase	600	root:root
+/usr/local/bin/forgejo-db-backup	755	root:root
