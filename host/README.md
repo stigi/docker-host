@@ -74,6 +74,31 @@ Re-run that scan after any significant system change; the set is not static.
 
 ## Secrets and recovery
 
+### Encrypted entries
+
+Four files are tracked **encrypted** via git-secret, because the notification
+and backup machinery is useless without them:
+
+    /root/.ntfy-token              read by ALL FOUR notify scripts --
+                                   borgmatic, smartd, mdadm, host-drift.
+                                   Restore without it and every alert path is
+                                   silently dead.
+    /etc/borgmatic/passphrase      unlocks the borg repository
+    /root/.grafana-admin-password  Grafana local admin
+    /etc/msmtprc                   SMTP password (smartd/mdadm mail to root)
+
+Each is encrypted to the same two keys as the other 57 secrets, one of which is
+not on this host. The plaintexts are gitignored; only the `.secret` files are
+committed.
+
+**The borg passphrase deserves a conscious decision.** Putting it here means the
+repo alone is enough to restore the backups, given the GPG key — which removes
+the circularity where the only copy lived inside the archive it unlocks. The
+trade is that a leak of the GPG private key now also leaks the borg passphrase.
+That is judged acceptable because the key is held in two places, one offsite,
+and never on a machine that is not already root-equivalent here. If that stops
+being true, remove this entry rather than relying on the ciphertext.
+
 `/etc/msmtprc` holds a plaintext SMTP password, so it is tracked **encrypted**
 via git-secret: the repo contains `host/etc/msmtprc.secret`, and the plaintext
 `host/etc/msmtprc` is gitignored. It is encrypted to the same two keys as the

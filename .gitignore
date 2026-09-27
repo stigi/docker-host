@@ -10,3 +10,6 @@ volumes
 # ingore testing
 testing
 host/etc/msmtprc
+host/root/.ntfy-token
+host/root/.grafana-admin-password
+host/etc/borgmatic/passphrase

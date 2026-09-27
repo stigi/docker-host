@@ -20,16 +20,27 @@ while IFS=$'\t' read -r path mode owner; do
   copy="$HOST_DIR/${path#/}"
   checked=$((checked+1))
 
-  if [ ! -e "$path" ]; then
+  if [ ! -e "$path" ] && [ ! -L "$path" ]; then
     printf 'MISSING ON HOST  %s\n' "$path"; drift=1; missing=$((missing+1)); continue
   fi
-  if [ ! -e "$copy" ]; then
+  if [ ! -e "$copy" ] && [ ! -L "$copy" ]; then
     printf 'MISSING IN REPO  %s\n' "$path"; drift=1; missing=$((missing+1)); continue
   fi
   if ! [ -r "$path" ]; then
     printf 'UNREADABLE       %s (run as root)\n' "$path"; drift=1; continue
   fi
 
+  # Symlinks are wiring, not content: /etc/smartmontools/run.d/20ntfy is what
+  # actually makes smartd call the notify script. Compare targets, not bytes.
+  if [ -L "$copy" ] || [ -L "$path" ]; then
+    lt=$(readlink "$path" 2>/dev/null); ct=$(readlink "$copy" 2>/dev/null)
+    if [ -z "$lt" ] || [ -z "$ct" ]; then
+      printf 'SYMLINK MISMATCH %s  repo=%s live=%s\n' "$path" "${ct:-<not a symlink>}" "${lt:-<not a symlink>}"; drift=1
+    elif [ "$lt" != "$ct" ]; then
+      printf 'SYMLINK TARGET   %s  repo=%s live=%s\n' "$path" "$ct" "$lt"; drift=1
+    fi
+    continue
+  fi
   if ! cmp -s "$path" "$copy"; then
     printf 'CONTENT DIFFERS  %s\n' "$path"
     diff -u "$copy" "$path" 2>/dev/null | head -12 | sed 's/^/    /'

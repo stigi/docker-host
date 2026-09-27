@@ -49,3 +49,8 @@
 /etc/systemd/timesyncd.conf.d/hetzner.conf	644	root:root
 /installimage.conf	640	root:root
 /etc/msmtprc	600	root:root
+/etc/smartmontools/run.d/20ntfy	777	root:root
+/usr/local/bin/ufw-docker	755	root:root
+/root/.ntfy-token	600	root:root
+/root/.grafana-admin-password	600	root:root
+/etc/borgmatic/passphrase	600	root:root
