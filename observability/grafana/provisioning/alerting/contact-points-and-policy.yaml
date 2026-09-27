@@ -1,0 +1,57 @@
+# Grafana contact points and notification policy for zebra.ullrich.is.
+#
+# STATUS: exported from the live Grafana, NOT authoritative -- same as
+# raid-and-disk.yaml and backups.yaml. These live in the grafana_storage volume.
+#
+# Why this file exists: the alert rules in this directory reference a contact
+# point by NAME. Restore those rules onto a fresh Grafana without this and they
+# load fine, then silently notify nobody, because the "ntfy" receiver does not
+# exist. The rules and the thing that delivers them were tracked separately.
+#
+# Grafana redacts the bearer token on export -- `authorization_credentials` is
+# literally '[REDACTED]' below, verified against /root/.ntfy-token. The real
+# token is in git-secret at host/root/.ntfy-token; reveal it and paste it in
+# when recreating the contact point.
+#
+# RECOVERY ORDER on a fresh volume:
+#   1. restore grafana_storage from borg -- this file is then unnecessary,
+#      everything including the token comes back
+#   2. only if that is not possible: import this, paste the token from
+#      git-secret, then import raid-and-disk.yaml and backups.yaml
+#
+apiVersion: 1
+contactPoints:
+    - orgId: 1
+      name: email receiver
+      receivers:
+        - uid: ""
+          type: email
+          settings:
+            addresses: <example@email.com>
+          disableResolveMessage: false
+    - orgId: 1
+      name: ntfy
+      receivers:
+        - uid: afyfztuttdlogb
+          type: webhook
+          settings:
+            authorization_credentials: '[REDACTED]'
+            authorization_scheme: Bearer
+            httpMethod: POST
+            message: |-
+                {{ range .Alerts }}{{ .Annotations.summary }}
+                {{ end }}host=zebra.ullrich.is
+            title: '{{ .Status | toUpper }}: {{ .CommonLabels.alertname }}'
+            url: https://ntfy.ullrich.is/zebra?tpl=yes&t=%7B%7B.title%7D%7D&m=%7B%7B.message%7D%7D&priority=high&tags=rotating_light
+          disableResolveMessage: false
+
+apiVersion: 1
+policies:
+    - orgId: 1
+      receiver: ntfy
+      group_by:
+        - grafana_folder
+        - alertname
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h

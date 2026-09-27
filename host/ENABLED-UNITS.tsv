@@ -1,0 +1,17 @@
+# Units that must be enabled for this host to behave as designed.
+#
+# Enabled state is NOT captured by tracking unit files: it lives in
+# /etc/systemd/system/*.wants/ symlinks made by `systemctl enable`.
+# Restore the config, forget to enable, and the thing silently never runs.
+# borgmatic.timer is the sharp example -- its unit is distro-provided, so
+# nothing in this repo would otherwise say that backups are supposed to run.
+#
+# unit<TAB>expected-state   checked by bin/host-drift-check
+borgmatic.timer	enabled
+smartmontools.service	enabled
+docker.service	enabled
+host-drift-check.timer	enabled
+forgejo-runner-prune.timer	enabled
+mdmonitor.service	static
+fail2ban.service	enabled
+auditd.service	enabled

@@ -56,12 +56,29 @@ while IFS= read -r copy; do
   rel="/${copy#$HOST_DIR/}"
   # *.secret are git-secret ciphertext, not mirrors of a host path: the
   # plaintext beside them is what the manifest tracks.
-  case "$rel" in /bin/*|/MANIFEST.tsv|/README.md|*.secret) continue;; esac
+  case "$rel" in /bin/*|/MANIFEST.tsv|/ENABLED-UNITS.tsv|/README.md|*.secret) continue;; esac
   grep -qF "$(printf '%s\t' "$rel")" "$MANIFEST" || { printf 'NOT IN MANIFEST  %s (tracked but never checked)\n' "$rel"; drift=1; }
 done < <(find "$HOST_DIR" -type f -not -path "$HOST_DIR/bin/*" -not -name MANIFEST.tsv -not -name README.md)
 
+# Enabled state of critical units. Tracking a unit FILE says nothing about
+# whether systemd will ever run it; that lives in *.wants symlinks.
+UNITS="$HOST_DIR/ENABLED-UNITS.tsv"
+units_checked=0
+if [ -r "$UNITS" ]; then
+  while IFS=$'\t' read -r unit expected; do
+    case "$unit" in ''|\#*) continue;; esac
+    units_checked=$((units_checked+1))
+    actual=$(systemctl is-enabled "$unit" 2>/dev/null | head -1)
+    [ -z "$actual" ] && actual=not-found
+    if [ "$actual" != "$expected" ]; then
+      printf 'UNIT STATE       %s  expected=%s actual=%s\n' "$unit" "$expected" "$actual"
+      drift=1
+    fi
+  done < "$UNITS"
+fi
+
 if [ "$drift" -eq 0 ]; then
-  echo "OK: $checked tracked file(s) match the host."
+  echo "OK: $checked tracked file(s) match the host; $units_checked unit(s) in expected state."
 else
   echo "DRIFT: $checked checked, differences above ($missing missing)."
 fi
