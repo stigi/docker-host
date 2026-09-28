@@ -64,6 +64,36 @@ exclude_patterns:
     # message in services/forgejo-runners/register-init.sh), and the alternative
     # is archiving a live credential plus a multi-GB act cache nightly.
     - /var/lib/docker/volumes/forgejo-runners_*
+    # NOT excluded, deliberately: Prometheus's WAL
+    # (/var/lib/docker/volumes/prometheus_prometheus-data/_data/wal). Borg logs
+    # "file changed while we backed it up" for it on every run, the same warning
+    # that made gitea.db worth fixing -- but the two are not comparable.
+    #
+    # Tested 2026-09-28: copied blocks + a WAL whose last segment was truncated
+    # to 60% (simulating a torn copy) and started prometheus 2.53.4 against it.
+    # It logged "Encountered WAL read error, attempting repair", rewrote the
+    # corrupted segment, logged "Successfully repaired WAL" and came up. TSDB
+    # checksums every WAL record and truncates at the first bad one; that is its
+    # normal crash path.
+    #
+    # Both alternatives are worse than doing nothing: the snapshot API needs
+    # --web.enable-admin-api (a restart, and it exposes delete_series), and
+    # excluding the WAL would discard up to 2h of metrics that the torn copy
+    # recovers. Leave it alone.
+
+    # NOT excluded either, same reasoning: Loki
+    # (/var/lib/docker/volumes/loki_loki_data/_data). Tested 2026-09-28 the same
+    # way -- truncated the last WAL segment to 60% and started loki 3.1.2 against
+    # it. Recovery logged "WAL checkpoint recovery finished errors=false" and
+    # "WAL segment recovery finished errors=false", then came up.
+    #
+    # Loki is in a better position than Prometheus anyway: its WAL is ~4MB and
+    # holds only unflushed chunks, while the 1.7GB of real data in chunks/ is
+    # immutable once written. In 7 days of timer-driven runs borg has logged no
+    # "changed while we backed it up" for anything under loki at all, and never
+    # for a chunk file. The one WAL warning seen on 2026-09-27 came from an
+    # ad-hoc run at an arbitrary moment, not the 01:22 schedule.
+
     # Forgejo's live SQLite DB. Replaced in the archive by gitea.db.backup,
     # written by the forgejo-db-backup hook above. Excluding the WAL and SHM
     # matters as much as the DB: restoring a db without its matching wal is
