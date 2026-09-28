@@ -8,8 +8,17 @@
 # no self-repair: unlike Prometheus and Loki, which checksum their WALs and
 # truncate at the first bad record, a torn SQLite file can simply not open.
 #
-# `.backup` uses SQLite's online backup API, which snapshots a live database
-# safely. Runs on the host: the n8n image ships no sqlite3.
+# Uses VACUUM INTO rather than `.backup`. Both are consistent snapshots of a
+# live database, but VACUUM INTO also compacts: this database is 93% free pages
+# (151326 of 162389 as of 2026-09-28), so `.backup` copied 665MB of which ~591MB
+# was reclaimed space. VACUUM INTO produces 45MB in 2s instead of 665MB in 15s,
+# verified to hold the same 1 workflow and 24 executions with integrity ok.
+#
+# The bloat itself is worth fixing separately: a VACUUM on the live database
+# would return ~591MB to the filesystem. That locks the DB while it rewrites, so
+# it wants a deliberate moment rather than a backup hook.
+#
+# Runs on the host: the n8n image ships no sqlite3.
 set -euo pipefail
 
 VOL=/var/lib/docker/volumes/n8n_n8n_storage/_data
@@ -21,8 +30,8 @@ command -v sqlite3 >/dev/null || { echo "n8n-db-backup: sqlite3 not installed on
 
 rm -f "$DST" "$DST-journal" "$DST-wal" "$DST-shm"
 
-if ! out=$(sqlite3 "$SRC" ".backup '$DST'" 2>&1); then
-  echo "n8n-db-backup: .backup failed: $out" >&2
+if ! out=$(sqlite3 "$SRC" "VACUUM INTO '$DST';" 2>&1); then
+  echo "n8n-db-backup: VACUUM INTO failed: $out" >&2
   exit 1
 fi
 
