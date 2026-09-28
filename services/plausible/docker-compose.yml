@@ -23,7 +23,10 @@ services:
       start_period: 1m
 
   plausible_events_db:
-    image: clickhouse/clickhouse-server:24.3.3.102-alpine
+    # 2026-09-28: 24.3.3.102 -> 24.12, the version Plausible CE v3.2.1 pins.
+    # NOT the newest ClickHouse: v3.2.1's own compose specifies 24.12, and
+    # running ahead of what upstream tests against buys nothing here.
+    image: clickhouse/clickhouse-server:24.12-alpine
     user: 1001:1001
     networks:
       - internal
@@ -38,9 +41,18 @@ services:
       # This makes ClickHouse consume less resources, which is useful for small setups.
       # https://clickhouse.com/docs/en/operations/tips#using-less-than-16gb-of-ram
       - ./clickhouse/low-resources.xml:/etc/clickhouse-server/config.d/low-resources.xml:ro
+      # Profile settings, split out of low-resources.xml. ClickHouse reads these
+      # from users.d; they are ignored under config.d in the newer layout.
+      - ./clickhouse/default-profile-low-resources-overrides.xml:/etc/clickhouse-server/users.d/default-profile-low-resources-overrides.xml:ro
       # Allows the native BACKUP engine, so borgmatic can archive a consistent
       # copy instead of the raw running data directory. See backups.xml.
       - ./clickhouse/backups.xml:/etc/clickhouse-server/config.d/backups.xml:ro
+    environment:
+      # Stops the image entrypoint writing its own users.d file. Without this,
+      # newer images provision a `default` user with a password while Plausible
+      # still connects with none -- community-edition#232, "Code: 516 ...
+      # Authentication failed: password is incorrect" after exactly this upgrade.
+      CLICKHOUSE_SKIP_USER_SETUP: '1'
     ulimits:
       nofile:
         soft: 262144
@@ -50,7 +62,10 @@ services:
       start_period: 1m
 
   plausible:
-    image: ghcr.io/plausible/community-edition:v2.1.5
+    # 2026-09-28: v2.1.5 -> v3.2.1. The startup command is unchanged from
+    # upstream's own v3.2.1 compose (createdb && migrate && run); the app runs
+    # its Ecto migrations on boot.
+    image: ghcr.io/plausible/community-edition:v3.2.1
     ## Plausible needs to run as 1000 which is `plausibleuser` internally, and needed to change some files on launch time
     user: 1000:1001
     networks:
@@ -70,6 +85,10 @@ services:
       plausible_events_db:
         condition: service_healthy
     environment:
+      # New in v3.2.1's compose. This service pins user: 1000:1001, so
+      # /var/lib/plausible/tmp was pre-created with that ownership -- the app
+      # cannot mkdir it itself inside a volume whose root is owned by root.
+      - TMPDIR=/var/lib/plausible/tmp
       - DATABASE_URL={{DOCKER-SECRET:DATABASE_URL}}
       - SMTP_USER_PWD={{DOCKER-SECRET:SMTP_PASSWORD}}
       - SECRET_KEY_BASE={{DOCKER-SECRET:SECRET_KEY_BASE}}
