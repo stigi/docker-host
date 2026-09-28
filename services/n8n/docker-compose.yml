@@ -28,7 +28,15 @@ services:
     restart: always
     networks:
       - caddy
+      # Also on the internal sandbox network so n8n can reach sandbox-api by
+      # name. The sandbox services are deliberately NOT on caddy: sandbox-runner-1
+      # is a privileged DinD container and has no business being adjacent to the
+      # reverse proxy or the other ~48 containers.
+      - sandbox
     secrets: [N8N_ENCRYPTION_KEY]
+    # Supplies N8N_SANDBOX_SERVICE_API_KEY. sandbox-api reads the same file as
+    # SANDBOX_API_KEYS, so the two match by construction.
+    env_file: ./secrets/sandbox.env
     environment:
       - N8N_HOST=n8n.ullrich.is
       - N8N_PORT=5678
@@ -39,6 +47,10 @@ services:
       - NODE_ENV=production
       - WEBHOOK_URL=https://n8n.ullrich.is/
       - GENERIC_TIMEZONE=Europe/Berlin
+    # n8n Assistant sandbox. The LLM (OpenRouter) key is set in the UI, not here.
+      - N8N_INSTANCE_AI_SANDBOX_ENABLED=true
+      - N8N_INSTANCE_AI_SANDBOX_PROVIDER=n8n-sandbox
+      - N8N_SANDBOX_SERVICE_URL=http://sandbox-api:8080
     volumes:
       - n8n_storage:/home/node/.n8n
       - ./with-expanded-env.sh:/with-expanded-env.sh
@@ -52,10 +64,114 @@ services:
       flame.name: n8n
       flame.url: https://n8n.ullrich.is
 
+
+  # ---------------------------------------------------------------------------
+  # n8n Assistant sandbox (self-hosted "n8n-sandbox" provider).
+  #
+  # Three services from one release; the images are only supported together, so
+  # N8N_SANDBOX_VERSION pins all three. Adapted from n8n's get-n8n-compose.yml:
+  #   - no env_file: .env      -> the shared key comes from ./secrets/sandbox.env
+  #   - no published ports     -> nothing here is internet-facing
+  #   - own internal network   -> not reachable from caddy or other services
+  #
+  # sandbox-runner-1 is PRIVILEGED Docker-in-Docker and executes code the
+  # assistant generates. It is the reason this stack is isolated on its own
+  # network. It also accumulates images and build cache the same way the Forgejo
+  # runner does, which is why sandbox-prune.timer exists.
+  # ---------------------------------------------------------------------------
+
+  # One-shot: mints the mutual-TLS material into the shared sandbox-tls volume.
+  # Certificates are issued for the SANs "sandbox-api" and "sandbox-runner-<n>",
+  # so those service names are load-bearing and must not be renamed.
+  sandbox-certs:
+    image: ghcr.io/n8n-io/n8n-sandbox-service-api:1.5.0
+    user: '0:0'
+    entrypoint: ['sh', '-c']
+    command:
+      - >
+        bootstrap-mtls.sh --out-dir /tls --api-san sandbox-api
+        --control-san-prefix sandbox-runner --world-readable &&
+        chown -R sandbox-api:sandbox-api /tls/api && chmod -R a+rX /tls
+    environment:
+      NUM_RUNNERS: '1'
+    volumes:
+      - sandbox-tls:/tls
+    networks:
+      - sandbox
+
+  sandbox-api:
+    image: ghcr.io/n8n-io/n8n-sandbox-service-api:1.5.0
+    restart: unless-stopped
+    depends_on:
+      sandbox-certs:
+        condition: service_completed_successfully
+    # SANDBOX_API_KEYS lives here; n8n reads the same file for its own name.
+    env_file: ./secrets/sandbox.env
+    environment:
+      SANDBOX_API_GRPC_TLS_CERT_FILE: /tls/api/grpc-server.crt
+      SANDBOX_API_GRPC_TLS_KEY_FILE: /tls/api/grpc-server.key
+      SANDBOX_API_GRPC_TLS_CLIENT_CA_FILE: /tls/api/ca.crt
+      SANDBOX_API_RUNNER_CONTROL_GRPC_TLS_CA_FILE: /tls/api/ca.crt
+      SANDBOX_API_RUNNER_CONTROL_GRPC_TLS_CERT_FILE: /tls/api/control-grpc-api-client.crt
+      SANDBOX_API_RUNNER_CONTROL_GRPC_TLS_KEY_FILE: /tls/api/control-grpc-api-client.key
+      SANDBOX_API_RUNNER_CONTROL_GRPC_TLS_SERVER_NAME: sandbox-runner-1
+    volumes:
+      - sandbox-tls:/tls:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8080/healthz']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sandbox
+
+  sandbox-runner-1:
+    image: ghcr.io/n8n-io/n8n-sandbox-service-runner-dind:1.5.0
+    restart: unless-stopped
+    privileged: true
+    depends_on:
+      sandbox-api:
+        condition: service_healthy
+    env_file: ./secrets/sandbox.env
+    environment:
+      SANDBOX_RUNNER_API_GRPC_ADDR: sandbox-api:9090
+      SANDBOX_RUNNER_HTTP_BASE_URL: https://sandbox-runner-1:8080
+      SANDBOX_RUNNER_CONTROL_GRPC_LISTEN_ADDR: ':9091'
+      SANDBOX_RUNNER_CONTROL_GRPC_ADVERTISE_ADDR: sandbox-runner-1:9091
+      SANDBOX_RUNNER_ID: runner-1
+      # Default is 1000 concurrent sandboxes. This host is spinning disks with
+      # ~150-250 combined random IOPS; a handful of concurrent DinD sandboxes is
+      # already more than it can serve. Capped deliberately.
+      SANDBOX_RUNNER_CAPACITY_TOTAL: '2'
+      SANDBOX_RUNNER_DOCKER_SANDBOX_IMAGE: ghcr.io/n8n-io/n8n-sandbox-service-sandbox:1.5.0
+      SANDBOX_RUNNER_REGISTRATION_GRPC_CA_FILE: /tls/runner/ca.crt
+      SANDBOX_RUNNER_REGISTRATION_GRPC_CERT_FILE: /tls/runner/grpc-client.crt
+      SANDBOX_RUNNER_REGISTRATION_GRPC_KEY_FILE: /tls/runner/grpc-client.key
+      SANDBOX_RUNNER_REGISTRATION_GRPC_SERVER_NAME: sandbox-api
+      SANDBOX_RUNNER_CONTROL_GRPC_TLS_CERT_FILE: /tls/runner/control-grpc-server.crt
+      SANDBOX_RUNNER_CONTROL_GRPC_TLS_KEY_FILE: /tls/runner/control-grpc-server.key
+      SANDBOX_RUNNER_CONTROL_GRPC_TLS_CLIENT_CA_FILE: /tls/runner/ca.crt
+    volumes:
+      - sandbox-tls:/tls:ro
+      # The image declares an ANONYMOUS volume for /var/lib/docker. Naming it
+      # keeps the inner daemon's images and layers in a volume we can find,
+      # measure and prune, instead of a 64-hex name that leaks on recreate.
+      - sandbox-runner-1-docker:/var/lib/docker
+    networks:
+      - sandbox
+
 volumes:
+  # mutual-TLS material shared between the three sandbox services
+  sandbox-tls:
+  sandbox-runner-1-docker:
   n8n_storage:
 
 networks:
+  # Internal only: no external: true, no published ports. Keeps the privileged
+  # DinD runner away from caddy and every other service on the box.
+  sandbox:
+    internal: false   # runner must pull its sandbox image from ghcr.io
   caddy:
     external: true
 

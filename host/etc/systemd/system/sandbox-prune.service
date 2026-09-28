@@ -1,0 +1,25 @@
+[Unit]
+Description=Prune n8n Assistant sandbox dind images and stopped containers
+Documentation=https://docs.n8n.io/deploy/host-n8n/configure-n8n/set-up-n8n-assistant
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+IOSchedulingClass=idle
+Nice=19
+# sandbox-runner-1 is a privileged DinD that creates a container per assistant
+# session and pulls the sandbox image on first use. Left alone it accumulates
+# exactly like the Forgejo runner did -- that one sat at 28GB of images plus
+# 22GB of build cache even WITH a weekly prune, and its predecessor reached
+# 151GB / 10.7M inodes and took the host down. This exists from day one rather
+# than being retrofitted after the fact.
+#
+# `|| true` on each: a prune must not fail the unit just because the runner is
+# between restarts.
+ExecStart=/bin/sh -c '/usr/bin/docker exec n8n-sandbox-runner-1-1 docker container prune -f || true'
+ExecStart=/bin/sh -c '/usr/bin/docker exec n8n-sandbox-runner-1-1 docker image prune -f || true'
+ExecStart=/bin/sh -c '/usr/bin/docker exec n8n-sandbox-runner-1-1 docker builder prune -f --filter until=336h || true'
+
+[Install]
+WantedBy=multi-user.target

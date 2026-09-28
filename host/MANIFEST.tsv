@@ -15,6 +15,8 @@
 /etc/systemd/system/host-drift-check.timer	644	root:root
 /etc/systemd/system/forgejo-runner-prune.service	644	root:root
 /etc/systemd/system/forgejo-runner-prune.timer	644	root:root
+/etc/systemd/system/sandbox-prune.service	644	root:root
+/etc/systemd/system/sandbox-prune.timer	644	root:root
 /etc/sysctl.d/99-hetzner.conf	644	root:root
 /etc/ssh/sshd_config	600	root:root
 /etc/netplan/01-netcfg.yaml	600	root:root

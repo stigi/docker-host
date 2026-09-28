@@ -1,0 +1,18 @@
+[Unit]
+Description=Weekly prune of the n8n Assistant sandbox dind storage
+
+[Timer]
+# Sunday 15:00, in the documented IO schedule on this box:
+#   borgmatic            00:00-03:00 (daily + RandomizedDelaySec=3h)
+#   smartd short test    04:00 daily
+#   smartd long test     sda Sat 05:00, sdb Sun 05:00 (ends ~12:30)
+#   forgejo runner prune Sun 14:00 (+30m jitter)
+#   sandbox prune        Sun 15:00 (+30m jitter)   <- this
+#   host drift check     Sun 16:00 (+30m jitter)
+#   lynis audit          Sun 18:00 (+30m jitter)
+OnCalendar=Sun 15:00
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

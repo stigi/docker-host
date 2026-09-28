@@ -12,6 +12,7 @@ smartmontools.service	enabled
 docker.service	enabled
 host-drift-check.timer	enabled
 forgejo-runner-prune.timer	enabled
+sandbox-prune.timer	enabled
 mdmonitor.service	static
 fail2ban.service	enabled
 auditd.service	enabled
