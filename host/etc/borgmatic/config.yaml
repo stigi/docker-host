@@ -108,9 +108,11 @@ exclude_patterns:
     #   forgejo gitea.db           124MB  running, hot   -> HOOKED (.backup)
     #   audiobookshelf absdatabase 5.6MB  running        -> left alone
     #   pitch-mafia-slack db       10MB   rarely written -> left alone
-    #   bitwarden db.sqlite3       3MB    NOT DEPLOYED   -> left alone
     #   gramps sqlite.db           0.5MB  last write Jan -> left alone
     #   grafana.db                 3MB    0% free pages  -> left alone
+    #
+    # (bitwarden was on this list until 2026-09-28, when it was retired along
+    # with the other dormant projects.)
     #
     # The two big, constantly-written ones are hooked. The rest are small enough
     # that a torn copy costs a re-scan rather than a service, and a hook each
