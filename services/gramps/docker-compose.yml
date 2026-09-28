@@ -1,6 +1,8 @@
 services:
   grampsweb: &grampsweb
-    image: ghcr.io/gramps-project/grampsweb:latest
+    # PINNED 2026-09-28. Gramps Web uses CalVer for images, so the tag is
+    # v24.12.2 even though the webapi inside reports 2.7.0.
+    image: ghcr.io/gramps-project/grampsweb:v24.12.2
     restart: unless-stopped
     networks:
       - internal

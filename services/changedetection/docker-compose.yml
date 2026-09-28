@@ -1,6 +1,7 @@
 services:
   changedetection:
-    image: ghcr.io/dgtlmoon/changedetection.io:latest
+    # PINNED 2026-09-28 to the running build.
+    image: ghcr.io/dgtlmoon/changedetection.io:0.52.6
     container_name: changedetection
     restart: unless-stopped
     depends_on:
@@ -23,7 +24,12 @@ services:
       flame.url: https://changedetection.ullrich.is
 
   browserless-chrome:
-    image: ghcr.io/browserless/chrome:latest
+    # PINNED 2026-09-28. changedetection depends on this for rendering, so a
+    # major here breaks a stateful service even though this one holds no data.
+    # Pinned by DIGEST: the v2.38.3 tag has since been re-pushed and now resolves
+    # to different bytes, so pinning to it would have swapped the image rather
+    # than frozen it.
+    image: ghcr.io/browserless/chrome@sha256:442068941412ca5f00cdf30213b1e46c3d3bf41983351a55821651d61a1e9bbe
     container_name: changedetection-browserless-chrome
     restart: unless-stopped
     networks:

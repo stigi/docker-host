@@ -1,6 +1,7 @@
 services:
   audiobookshelf:
-    image: ghcr.io/advplyr/audiobookshelf:latest
+    # PINNED 2026-09-28 to the running build.
+    image: ghcr.io/advplyr/audiobookshelf:2.17.7
     user: 1001:1001
     restart: unless-stopped
     volumes:

@@ -1,6 +1,8 @@
 services:
   authelia:
-    image: authelia/authelia:latest
+    # PINNED 2026-09-28 to the running build. Authelia is the SSO gate; an
+    # unattended major here locks every protected service at once.
+    image: authelia/authelia:4.39.28
     user: 1001:1001
     restart: always
     depends_on:

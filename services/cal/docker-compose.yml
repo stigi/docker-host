@@ -22,7 +22,13 @@ services:
       - internal
 
   calcom:
-    image: calcom/cal.com
+    # PINNED 2026-09-28. This was untagged (:latest). At the time of pinning,
+    # latest was v6.2.0 (2026-03-02) while this image was built 2025-02-05 and
+    # ships web 4.9.6 -- a `docker compose pull` would have crossed two majors
+    # and run Prisma migrations against the booking data.
+    # Pinned by DIGEST, not a tag: cal.com publishes no version tag matching
+    # this build (there is no v4.9.6), so the digest is the only stable name.
+    image: calcom/cal.com@sha256:3142600b6c9e4e239e3882e43df1e43db7b004704164b09cf94c3b1eb284750c
     restart: unless-stopped
     networks:
       - internal
