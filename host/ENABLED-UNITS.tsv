@@ -15,3 +15,4 @@ forgejo-runner-prune.timer	enabled
 mdmonitor.service	static
 fail2ban.service	enabled
 auditd.service	enabled
+lynis.timer	enabled

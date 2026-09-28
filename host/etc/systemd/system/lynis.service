@@ -1,0 +1,14 @@
+[Unit]
+Description=Lynis security audit
+Documentation=man:lynis(8)
+
+[Service]
+Type=oneshot
+# --cronjob implies --quiet --no-colors and non-interactive. Results land in
+# /var/log/lynis.log and /var/log/lynis-report.dat.
+ExecStart=/usr/sbin/lynis audit system --cronjob
+User=root
+# Lynis walks a lot of the filesystem. Spinning disks here, so keep it out of
+# the way of anything interactive; bfq honours this.
+Nice=19
+IOSchedulingClass=idle

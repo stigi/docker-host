@@ -1,0 +1,16 @@
+[Unit]
+Description=Weekly Lynis security audit
+
+[Timer]
+# Sunday 18:00, clear of the documented IO schedule on this box:
+#   borgmatic            00:00-03:00 (daily + RandomizedDelaySec=3h)
+#   smartd short test    04:00 daily
+#   smartd long test     sda Sat 05:00, sdb Sun 05:00 (ends ~12:30)
+#   forgejo runner prune Sun 14:00 (+30m jitter)
+#   host drift check     Sun 16:00 (+30m jitter)
+OnCalendar=Sun 18:00
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target
