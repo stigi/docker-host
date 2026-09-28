@@ -18,9 +18,17 @@ scrape_configs:
   - job_name: authelia
     static_configs:
       - targets: ["authelia:9959"]
-  - job_name: github-metrics
-    static_configs:
-      - targets: ["github-traffic:8001"]
+  # Disabled 2026-09-28. The github-traffic service in
+  # observability/github-traffic/ is defined but has not been running for a long
+  # time, so this target sat permanently at up=0 -- which makes any "is
+  # everything up?" query permanently false and buries a real outage in noise.
+  # No dashboard queries github_traffic metrics; the two MagicBell GitHub
+  # dashboards use the github-exporter job below, which IS running.
+  # The compose project and its secrets are kept, so re-enabling is: start the
+  # service, uncomment these three lines.
+  #- job_name: github-metrics
+  #  static_configs:
+  #    - targets: ["github-traffic:8001"]
   - job_name: github-exporter
     static_configs:
       - targets: ["github-exporter:9171"]
