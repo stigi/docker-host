@@ -33,6 +33,9 @@ services:
       # is a privileged DinD container and has no business being adjacent to the
       # reverse proxy or the other ~48 containers.
       - sandbox
+      # searxng lives on its own network rather than `sandbox`: the privileged
+      # DinD runner has no reason to reach the search service, or vice versa.
+      - search
     secrets: [N8N_ENCRYPTION_KEY]
     # Supplies N8N_SANDBOX_SERVICE_API_KEY. sandbox-api reads the same file as
     # SANDBOX_API_KEYS, so the two match by construction.
@@ -51,6 +54,10 @@ services:
       - N8N_INSTANCE_AI_SANDBOX_ENABLED=true
       - N8N_INSTANCE_AI_SANDBOX_PROVIDER=n8n-sandbox
       - N8N_SANDBOX_SERVICE_URL=http://sandbox-api:8080
+      # Web search for the Assistant. The alternative is a Brave API key
+      # (INSTANCE_AI_BRAVE_SEARCH_API_KEY); self-hosting searxng keeps the
+      # assistant's queries off a third party and costs nothing per query.
+      - N8N_INSTANCE_AI_SEARXNG_URL=http://searxng:8080
     volumes:
       - n8n_storage:/home/node/.n8n
       - ./with-expanded-env.sh:/with-expanded-env.sh
@@ -161,10 +168,43 @@ services:
     networks:
       - sandbox
 
+
+  # ---------------------------------------------------------------------------
+  # SearXNG: the Assistant's web search backend (N8N_INSTANCE_AI_SEARXNG_URL).
+  # Internal only -- no published port, no caddy label. n8n reaches it by name.
+  # Pinned: SearXNG publishes a new dated tag most days and has no stable
+  # release line, so `latest` would drift under us like the n8n tag did.
+  # ---------------------------------------------------------------------------
+  searxng:
+    image: docker.io/searxng/searxng:2026.9.25-12f8b6515
+    restart: unless-stopped
+    # Supplies SEARXNG_SECRET, which overrides server.secret_key in settings.yml.
+    env_file: ./secrets/searxng.env
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+      - SEARXNG_PORT=8080
+      # The entrypoint chowns the config dir when running as root; ours is a
+      # read-only mount, so tell it not to try.
+      - FORCE_OWNERSHIP=false
+    volumes:
+      # Read-only: the entrypoint only writes settings.yml when none exists,
+      # and ours does.
+      - ./searxng:/etc/searxng:ro
+      - searxng-data:/var/cache/searxng
+    networks:
+      - search
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8080/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
 volumes:
   # mutual-TLS material shared between the three sandbox services
   sandbox-tls:
   sandbox-runner-1-docker:
+  searxng-data:
   n8n_storage:
 
 networks:
@@ -172,6 +212,9 @@ networks:
   # DinD runner away from caddy and every other service on the box.
   sandbox:
     internal: false   # runner must pull its sandbox image from ghcr.io
+  # searxng needs egress to reach the upstream search engines, so this is
+  # not `internal: true` either; it just keeps searxng off the sandbox net.
+  search:
   caddy:
     external: true
 

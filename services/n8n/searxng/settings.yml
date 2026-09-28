@@ -1,0 +1,45 @@
+# SearXNG for the n8n Assistant's web search.
+#
+# use_default_settings pulls in the upstream settings.yml (engine list and all)
+# and lets this file override only what matters here. Do NOT copy the full
+# upstream file in: it changes every release and would silently pin an engine
+# list that rots.
+use_default_settings: true
+
+general:
+  instance_name: "zebra searxng"
+  # Nothing here is public, so no donation/contact links to serve.
+  donation_url: false
+  contact_url: false
+  enable_metrics: false
+
+server:
+  # secret_key comes from SEARXNG_SECRET (secrets/searxng.env), not from this
+  # tracked file.
+  #
+  # limiter needs valkey/redis and exists to stop strangers hammering a public
+  # instance. This one is on an internal network with no published port and no
+  # caddy label -- n8n is the only thing that can reach it -- so it would only
+  # cost a container and rate-limit our own assistant.
+  limiter: false
+  public_instance: false
+  image_proxy: false
+
+search:
+  # THE load-bearing line. SearXNG ships with formats: [html] only, and n8n
+  # calls GET /search?q=...&format=json. Without json here that request comes
+  # back 403 and the Assistant's search silently returns nothing.
+  formats:
+    - html
+    - json
+  safe_search: 0
+  autocomplete: ""
+
+ui:
+  static_use_hash: true
+
+outgoing:
+  request_timeout: 5.0
+  max_request_timeout: 15.0
+  pool_connections: 20
+  pool_maxsize: 10
