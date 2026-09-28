@@ -49,11 +49,18 @@ services:
 
 
   database:
-    image: postgres:15
+    # 2026-09-28: 15 -> 18 by dump/restore. This also clears a glibc collation
+    # mismatch -- the cluster was built against 2.36 and the OS now provides
+    # 2.41, which silently changes text index ordering. pg_upgrade would have
+    # carried that forward; a fresh initdb + restore does not.
+    image: postgres:18
     user: 1001:1001
     restart: unless-stopped
     volumes:
-      - ./volumes/postgres:/var/lib/postgresql/data
+      # postgres:18 moved PGDATA to /var/lib/postgresql/18/docker and its declared
+      # volume to /var/lib/postgresql. https://github.com/docker-library/postgres/pull/1259
+      # NB: this dir must be pre-created 1001:1001 to match `user:` above.
+      - ./volumes/postgres-18:/var/lib/postgresql
     networks:
       - internal
     secrets:

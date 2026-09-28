@@ -140,6 +140,7 @@ exclude_patterns:
     # totp_configurations and webauthn_credentials, 0 invalid indexes,
     # 15 foreign keys) before this line was added.
     - /home/docker-host/repo/core/authelia/volumes/postgres
+    - /home/docker-host/repo/core/authelia/volumes/postgres-18
 
     # cal.com and Plausible Postgres data directories. Superseded by the
     # streamed pg_dumps in postgresql_databases:, restore-tested 2026-09-24
