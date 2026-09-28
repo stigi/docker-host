@@ -47,7 +47,6 @@ services:
       caddy_2.forward_auth.uri: /api/verify?rd=https://auth.ullrich.is
       caddy_2.forward_auth.copy_headers: Remote-User Remote-Groups Remote-Name Remote-Email
 
-      com.centurylinklabs.watchtower.enable: true
 
   database:
     image: postgres:15
@@ -62,8 +61,6 @@ services:
     environment:
       POSTGRES_USER: authelia
       POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
-    labels:
-      com.centurylinklabs.watchtower.enable: true
 
   redis:
     image: redis:7
@@ -81,8 +78,6 @@ services:
       - ./volumes/redis:/data
     networks:
       - internal
-    labels:
-      com.centurylinklabs.watchtower.enable: true
 
 networks:
   caddy:

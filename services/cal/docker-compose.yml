@@ -10,8 +10,6 @@ services:
       POSTGRES_DB: a1811e86f410ea1716d366c07cc6ed42
       POSTGRES_USER: cal_pg
       POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
-    labels:
-      com.centurylinklabs.watchtower.enable: true
     networks:
       - internal
 
@@ -35,7 +33,6 @@ services:
       flame.type: application
       flame.name: cal
       flame.url: https://cal.ullrich.is
-      com.centurylinklabs.watchtower.enable: true
 
 secrets:
   CALENDSO_ENCRYPTION_KEY:

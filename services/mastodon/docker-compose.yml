@@ -33,7 +33,6 @@ services:
       flame.type: application
       flame.name: mastodon
       flame.url: https://social.ullrich.is
-      com.centurylinklabs.watchtower.enable: true
 
   streaming:
     image: ghcr.io/mastodon/mastodon-streaming:v4.7.2
@@ -59,7 +58,6 @@ services:
       caddy: social.ullrich.is
       caddy.handle: /api/v1/streaming*
       caddy.handle.reverse_proxy: "{{upstreams 4000}}"
-      com.centurylinklabs.watchtower.enable: true
 
   sidekiq:
     image: ghcr.io/mastodon/mastodon:v4.7.2
@@ -79,8 +77,6 @@ services:
     depends_on:
       - db
       - redis
-    labels:
-      com.centurylinklabs.watchtower.enable: true
 
 # Internal DBs
   pgadmin:
@@ -114,7 +110,6 @@ services:
       caddy.route.1_uri: strip_prefix /pga
       caddy.route.2_reverse_proxy: "{{upstreams 80}}"
       caddy.route.2_reverse_proxy.header_up: +X-Script-Name /pga
-      com.centurylinklabs.watchtower.enable: true
 
   db:
     restart: unless-stopped
@@ -129,8 +124,6 @@ services:
     environment:
       - 'POSTGRES_HOST_AUTH_METHOD=trust'
     command: postgres -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all
-    labels:
-      com.centurylinklabs.watchtower.enable: true
 
 
   redis:
@@ -142,8 +135,6 @@ services:
       test: ['CMD', 'redis-cli', 'ping']
     volumes:
       - ./volumes/redis:/data
-    labels:
-      com.centurylinklabs.watchtower.enable: true
 
 networks:
   caddy:

@@ -79,7 +79,6 @@ services:
     labels:
       caddy: git.ullrich.is
       caddy.reverse_proxy: "{{upstreams 3000}}"
-      com.centurylinklabs.watchtower.enable: true
 
 networks:
   caddy:

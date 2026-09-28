@@ -16,7 +16,6 @@ services:
       flame.type: application
       flame.name: audio bookshelf
       flame.url: https://audioshelf.ullrich.is
-      com.centurylinklabs.watchtower.enable: true
 
 networks:
   caddy:
