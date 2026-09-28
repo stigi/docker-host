@@ -5,8 +5,16 @@ services:
     # jumped two majors and run an irreversible database migration on 665MB of
     # workflows and execution history. Same trap that was pinned for prometheus,
     # loki, promtail and grafana on 2026-09-25/27.
-    # Upgrade deliberately, after reading the 2.0 breaking changes.
-    image: docker.n8n.io/n8nio/n8n:1.73.1
+    # 2026-09-28: 1.73.1 -> 1.123.82 to fix CVE-2026-21858 ("Ni8mare", CVSS 10.0),
+    # an UNAUTHENTICATED RCE via content-type confusion in webhook request
+    # handling, affecting 1.65-1.120.4 with no workaround. This instance is
+    # publicly reachable and serves a webhook workflow, so it was squarely in
+    # scope. Fixed in 1.121.0.
+    #
+    # Deliberately the latest 1.x, not 2.x: it clears the CVE without a major
+    # migration, and 1.121.0+ ships the Migration Report tool (Settings ->
+    # Migration Report) which is the supported way to prepare for 2.0.
+    image: docker.n8n.io/n8nio/n8n:1.123.82
     user: 1000:1001
     restart: always
     networks:
