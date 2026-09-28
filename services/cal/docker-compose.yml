@@ -1,9 +1,17 @@
 services:
   database:
-    image: postgres:16
+    # 2026-09-28: 16 -> 18 by dump/restore, not pg_upgrade. At 13MB the speed
+    # difference is irrelevant, and a fresh cluster means the old volume
+    # (cal_database-data) stays byte-for-byte intact as the rollback.
+    image: postgres:18
     restart: unless-stopped
     volumes:
-      - database-data:/var/lib/postgresql/data/
+      # postgres:18 changed PGDATA to /var/lib/postgresql/18/docker and moved its
+      # declared volume to /var/lib/postgresql. Mounting at .../data now fails
+      # outright. Upstream's instruction is a single mount at /var/lib/postgresql,
+      # which also keeps pg_upgrade --link working across future majors.
+      # https://github.com/docker-library/postgres/pull/1259
+      - database-data-18:/var/lib/postgresql
       - ./with-expanded-env.sh:/with-expanded-env.sh
     secrets: [POSTGRES_PASSWORD]
     environment:
@@ -53,7 +61,9 @@ secrets:
     file: ./secrets/ZOOM_CLIENT_SECRET
 
 volumes:
+  # kept, unused, as the pre-upgrade rollback target
   database-data:
+  database-data-18:
 
 networks:
   internal:
