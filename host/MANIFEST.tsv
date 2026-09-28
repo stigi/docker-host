@@ -57,3 +57,4 @@
 /usr/local/bin/forgejo-db-backup	755	root:root
 /etc/systemd/system/lynis.service	644	root:root
 /etc/systemd/system/lynis.timer	644	root:root
+/usr/local/bin/n8n-db-backup	755	root:root

@@ -1,6 +1,12 @@
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n
+    # PINNED. This was untagged, i.e. :latest, while the running version is
+    # 1.73.1 and latest is 2.41.x -- a `docker compose pull` here would have
+    # jumped two majors and run an irreversible database migration on 665MB of
+    # workflows and execution history. Same trap that was pinned for prometheus,
+    # loki, promtail and grafana on 2026-09-25/27.
+    # Upgrade deliberately, after reading the 2.0 breaking changes.
+    image: docker.n8n.io/n8nio/n8n:1.73.1
     user: 1000:1001
     restart: always
     networks:

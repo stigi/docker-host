@@ -101,6 +101,11 @@ exclude_patterns:
     - /home/docker-host/repo/services/forgejo/volumes/forgejo/gitea/gitea.db
     - /home/docker-host/repo/services/forgejo/volumes/forgejo/gitea/gitea.db-wal
     - /home/docker-host/repo/services/forgejo/volumes/forgejo/gitea/gitea.db-shm
+    # n8n's live SQLite DB, replaced in the archive by database.sqlite.backup
+    # from the n8n-db-backup hook above. Without this exclusion the archive would
+    # carry both copies, ~1.3GB of near-identical data per run.
+    - /var/lib/docker/volumes/n8n_n8n_storage/_data/database.sqlite
+    - /var/lib/docker/volumes/n8n_n8n_storage/_data/database.sqlite-journal
 
     # Mastodon Postgres data directory. Superseded by the streamed pg_dump
     # in postgresql_databases: below, which was restore-tested on 2026-09-21
@@ -264,6 +269,15 @@ commands:
       when: [create]
       run:
         - /usr/local/bin/forgejo-db-backup
+    # n8n is also SQLite: database.sqlite is ~665MB of workflows and execution
+    # history. journal_mode is `delete` rather than WAL, so the window is
+    # narrower than Forgejo's and borg has not caught it torn in 7 days -- but
+    # SQLite cannot self-repair the way Prometheus and Loki can, so a torn copy
+    # can simply fail to open. Snapshot costs ~15s.
+    - before: action
+      when: [create]
+      run:
+        - /usr/local/bin/n8n-db-backup
     - after: action
       when: [create]
       run:
