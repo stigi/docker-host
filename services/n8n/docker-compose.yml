@@ -11,10 +11,19 @@ services:
     # publicly reachable and serves a webhook workflow, so it was squarely in
     # scope. Fixed in 1.121.0.
     #
-    # Deliberately the latest 1.x, not 2.x: it clears the CVE without a major
-    # migration, and 1.121.0+ ships the Migration Report tool (Settings ->
-    # Migration Report) which is the supported way to prepare for 2.0.
-    image: docker.n8n.io/n8nio/n8n:1.123.82
+    # Then 1.123.82 -> 2.41.3 the same day, once the CVE was cleared and the
+    # instance had been audited against the 2.0 breaking changes. Almost none
+    # applied here: 1 workflow (webhook -> httpRequest -> xml -> code ->
+    # respondToWebhook), 0 credentials so no OAuth callback change, no Start
+    # node, no sub-workflows, no ExecuteCommand/LocalFileTrigger, no Python, no
+    # Git node, no retired nodes, no .env file so no dotenv parsing change, and
+    # no BINARY_DATA/RUNNERS/BLOCK_ENV/RESTRICT_FILE overrides so the new
+    # defaults apply cleanly.
+    #
+    # The one real change for this instance is task runners on by default: the
+    # Code node now executes isolated. Its code is plain $("Webhook").first()
+    # syntax, and the webhook returning 200 after the upgrade exercises it.
+    image: docker.n8n.io/n8nio/n8n:2.41.3
     user: 1000:1001
     restart: always
     networks:
