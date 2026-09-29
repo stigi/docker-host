@@ -87,6 +87,22 @@ Secrets are managed using [docker compose secrets](https://docs.docker.com/compo
 
 I strive to document all secrets in the services Readme, so this repos setup is easy to follow.
 
+### Git hooks
+
+Hooks live in `.githooks/` so they are version controlled. Git does not use
+them automatically -- **after cloning, run once:**
+
+```sh
+git config core.hooksPath .githooks
+```
+
+`pre-commit` encrypts any changed git-secret plaintexts and stages the result,
+so a commit cannot carry a stale ciphertext. It deliberately does nothing
+during a rebase, merge or cherry-pick: GPG output is non-deterministic, so
+re-encrypting an unchanged plaintext produces different bytes every time, and
+during a rebase that turns every `git commit --amend` into a binary conflict
+against the next commit that touches the same `.secret` file.
+
 ### Automatic Docker Image Updates
 
 *wip*

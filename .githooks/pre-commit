@@ -1,3 +1,47 @@
+#!/bin/sh
+# Tracked in the repository, not in .git/hooks, so it survives a fresh clone
+# and shows up in review like any other file. Git does not pick this up on its
+# own -- each clone needs, once:
+#
+#     git config core.hooksPath .githooks
+#
+# Encrypt any changed git-secret plaintexts and stage the result, so a commit
+# can never carry a stale ciphertext.
+#
+# SKIPPED DURING REBASE / MERGE / CHERRY-PICK.
+# GPG output is non-deterministic: encrypting an unchanged plaintext still
+# produces different bytes each time, because a fresh random session key is
+# used. During an ordinary commit that is harmless. During a rebase it is not --
+# every `git commit --amend` would rewrite every *.secret, and the next commit
+# being replayed that legitimately touches the same file then conflicts against
+# a blob it has no relationship to:
+#
+#   warning: Cannot merge binary files: services/n8n/secrets/sandbox.env.secret
+#   CONFLICT (content): Merge conflict in services/n8n/secrets/sandbox.env.secret
+#
+# That bit during the 2026-09-28 bulk-signing rebase, where two consecutive
+# commits both modified sandbox.env.secret. The workaround was --no-verify on
+# every amend; this removes the need for it.
+#
+# Skipping is safe here: the commits being replayed already carry their
+# ciphertext, and nothing during a rebase changes a plaintext on disk.
+set -eu
+
+git_dir=$(git rev-parse --git-dir)
+
+if [ -d "$git_dir/rebase-merge" ] || [ -d "$git_dir/rebase-apply" ] ||
+   [ -e "$git_dir/MERGE_HEAD" ] || [ -e "$git_dir/CHERRY_PICK_HEAD" ] ||
+   [ -e "$git_dir/REVERT_HEAD" ]; then
+  exit 0
+fi
+
+# -m hides only files whose plaintext hash changed. Without `set -e` a failure
+# here used to be ignored, letting a commit proceed with a stale ciphertext --
+# the exact thing this hook exists to prevent.
 git secret hide -m
+
 git add .gitsecret/paths/mapping.cfg
-git add *.secret
+# Quoted deliberately: this is a git pathspec, matched recursively by git, not
+# a shell glob. Unquoted it happens to work only because no *.secret file sits
+# in the repository root for the shell to expand.
+git add ':(glob)**/*.secret'
