@@ -69,6 +69,16 @@ services:
       # guards. 256MiB and 1000 entries are the incoming defaults.
       - N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES=268435456
       - N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES=1000
+      
+      # v3 renames /home/node/.n8n/binaryData to .../storage. Migrating now rather
+      # than during the v3 upgrade, while the directory is empty: binary-data mode
+      # has always been the in-memory default here (N8N_DEFAULT_BINARY_DATA_MODE is
+      # unset), so the rename moves nothing. The whole .n8n directory is one named
+      # volume, so there is no mount pinned to the old path to update.
+      #
+      # THIS MUST STAY until n8n v3. At 2.41.3 the flag is what selects the new
+      # path; remove it and n8n goes back to expecting binaryData and recreates it.
+      - N8N_MIGRATE_FS_STORAGE_PATH=true
       - GENERIC_TIMEZONE=Europe/Berlin
     # n8n Assistant sandbox. The LLM (OpenRouter) key is set in the UI, not here.
       - N8N_INSTANCE_AI_SANDBOX_ENABLED=true
