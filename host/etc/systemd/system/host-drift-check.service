@@ -1,6 +1,8 @@
 [Unit]
 Description=Check tracked host config in the repo against the live filesystem
 Documentation=file:///home/docker-host/repo/host/README.md
+# Report failures to ntfy; see systemd-failure-notify@.service.
+OnFailure=systemd-failure-notify@%n.service
 
 [Service]
 Type=oneshot

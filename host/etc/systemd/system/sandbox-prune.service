@@ -3,6 +3,8 @@ Description=Prune n8n Assistant sandbox dind images and stopped containers
 Documentation=https://docs.n8n.io/deploy/host-n8n/configure-n8n/set-up-n8n-assistant
 After=docker.service
 Requires=docker.service
+# Report failures to ntfy; see systemd-failure-notify@.service.
+OnFailure=systemd-failure-notify@%n.service
 
 [Service]
 Type=oneshot

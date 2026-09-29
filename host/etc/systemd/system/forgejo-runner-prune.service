@@ -3,6 +3,8 @@ Description=Prune Forgejo runner dind images and stopped containers
 Documentation=https://docs.docker.com/reference/cli/docker/image/prune/
 After=docker.service
 Requires=docker.service
+# Report failures to ntfy; see systemd-failure-notify@.service.
+OnFailure=systemd-failure-notify@%n.service
 
 [Service]
 Type=oneshot

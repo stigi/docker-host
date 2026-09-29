@@ -1,6 +1,8 @@
 [Unit]
 Description=Lynis security audit
 Documentation=man:lynis(8)
+# Report failures to ntfy; see systemd-failure-notify@.service.
+OnFailure=systemd-failure-notify@%n.service
 
 [Service]
 Type=oneshot
