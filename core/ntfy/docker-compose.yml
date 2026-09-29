@@ -1,6 +1,8 @@
 services:
   ntfy:
-    image: binwiederhier/ntfy:latest
+    # PINNED 2026-09-29 by DIGEST: no published tag matches the build that is
+# running, so the digest is the only stable name for it.
+    image: binwiederhier/ntfy@sha256:aa10e84da624f65be107f9317dbf6e212fa812e0ebf62e74d032d0762eccc930
     container_name: ntfy
     restart: unless-stopped
     environment:

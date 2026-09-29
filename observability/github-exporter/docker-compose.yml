@@ -1,6 +1,7 @@
 services:
   github-exporter:
-    image: githubexporter/github-exporter:latest
+    # PINNED 2026-09-29 to the running build.
+    image: githubexporter/github-exporter:v2.3.1
     user: 1001:1001
     secrets: [GITHUB_TOKEN]
     volumes:

@@ -28,7 +28,8 @@ services:
       flame.url: https://prometheus.ullrich.is
 
   node-exporter:
-    image: quay.io/prometheus/node-exporter:latest
+    # PINNED 2026-09-29 to the running build.
+    image: quay.io/prometheus/node-exporter:v1.12.1
     restart: unless-stopped
     volumes:
       - /proc:/host/proc:ro
@@ -58,7 +59,9 @@ services:
   # Metric names changed: iptables_* → nftables_* (nftables_chain_rules,
   # nftables_rule_bytes, nftables_rule_packets, nftables_table_chains).
   nftables-exporter:
-    image: cacack/nftables-exporter
+    # PINNED 2026-09-29 by DIGEST: no published tag matches the build that is
+# running, so the digest is the only stable name for it.
+    image: cacack/nftables-exporter@sha256:6d657a9c2ed8d5b24053d8d791ca9d5b0ae375d9e8e6938925d919615c7079fc
     restart: unless-stopped
     network_mode: host
     user: "0:0"

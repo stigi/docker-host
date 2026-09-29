@@ -1,6 +1,8 @@
 services:
   sentry-exporter:
-    image: italux/sentry-prometheus-exporter
+    # PINNED 2026-09-29 by DIGEST: no published tag matches the build that is
+# running, so the digest is the only stable name for it.
+    image: italux/sentry-prometheus-exporter@sha256:689ed195796eb87a08efbae3b7ebeff92f9ba552fbbb94b23bb8724667e45fc8
     user: 1001:1001
     secrets: [SENTRY_AUTH_TOKEN, SENTRY_EXPORTER_ORG, SENTRY_EXPORTER_PROJECTS]
     volumes:

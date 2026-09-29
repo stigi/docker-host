@@ -1,6 +1,7 @@
 services:
   docker-socket-proxy:
-    image: tecnativa/docker-socket-proxy:latest
+    # PINNED 2026-09-29 to the running build.
+    image: tecnativa/docker-socket-proxy:v0.5.0
     restart: always
     networks:
       - internal
@@ -12,7 +13,9 @@ services:
       INFO: 1
 
   flame:
-    image: pawelmalak/flame
+    # PINNED 2026-09-29 to the running build. The app's package.json reports 0.1.0, which is not
+    # the image version; the published tag for this build is 2.4.0.
+    image: pawelmalak/flame:2.4.0
     container_name: flame
     volumes:
       - ./volumes:/app/data
