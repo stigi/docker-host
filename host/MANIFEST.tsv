@@ -14,6 +14,9 @@
 /usr/local/bin/systemd-failure-notify	755	root:root
 /etc/systemd/system/systemd-failure-notify@.service	644	root:root
 /etc/systemd/system/borgmatic.service.d/onfailure.conf	644	root:root
+/etc/systemd/system/logrotate.service.d/onfailure.conf	644	root:root
+/etc/systemd/system/mdcheck_start.service.d/onfailure.conf	644	root:root
+/etc/systemd/system/mdcheck_continue.service.d/onfailure.conf	644	root:root
 /etc/systemd/system/host-drift-check.service	644	root:root
 /etc/systemd/system/host-drift-check.timer	644	root:root
 /etc/systemd/system/forgejo-runner-prune.service	644	root:root
