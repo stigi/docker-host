@@ -123,6 +123,12 @@ exclude_patterns:
     # carry both copies, ~1.3GB of near-identical data per run.
     - /var/lib/docker/volumes/n8n_n8n_storage/_data/database.sqlite
     - /var/lib/docker/volumes/n8n_n8n_storage/_data/database.sqlite-journal
+    # n8n 2.x runs this database in WAL mode, so -wal and -shm now exist
+    # alongside it. Archiving a WAL without a matching database is useless at
+    # best and misleading at worst; the snapshot in /var/lib/borgmatic/n8n is
+    # the copy that gets restored.
+    - /var/lib/docker/volumes/n8n_n8n_storage/_data/database.sqlite-wal
+    - /var/lib/docker/volumes/n8n_n8n_storage/_data/database.sqlite-shm
 
     # Mastodon Postgres data directory. Superseded by the streamed pg_dump
     # in postgresql_databases: below, which was restore-tested on 2026-09-21

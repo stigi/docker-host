@@ -1,32 +1,49 @@
 #!/bin/bash
 # Writes a CONSISTENT copy of n8n's SQLite database before borgmatic runs.
 #
-# Same reasoning as forgejo-db-backup. n8n's database.sqlite is ~665MB and holds
-# the workflows and their execution history. journal_mode is `delete` rather than
-# WAL, so a hot copy is only torn if borg reads it mid-transaction -- narrower
-# than Forgejo's exposure, and borg has not caught it in 7 days. But SQLite has
-# no self-repair: unlike Prometheus and Loki, which checksum their WALs and
-# truncate at the first bad record, a torn SQLite file can simply not open.
+# Same reasoning as forgejo-db-backup: SQLite has no self-repair. Unlike
+# Prometheus and Loki, which checksum their WALs and truncate at the first bad
+# record, a torn SQLite file can simply not open.
 #
-# Uses VACUUM INTO rather than `.backup`. Both are consistent snapshots of a
-# live database, but VACUUM INTO also compacts: this database is 93% free pages
-# (151326 of 162389 as of 2026-09-28), so `.backup` copied 665MB of which ~591MB
-# was reclaimed space. VACUUM INTO produces 45MB in 2s instead of 665MB in 15s,
-# verified to hold the same 1 workflow and 24 executions with integrity ok.
+# 2026-09-29: n8n 2.x switched this database to journal_mode=wal (the 2.0 SQLite
+# pooling driver). The previous version of this comment claimed `delete`, which
+# was true under 1.73. That makes a hot copy MORE exposed, not less: the file on
+# disk is not self-contained while the -wal holds committed pages. borgmatic
+# therefore excludes database.sqlite, -journal, -wal and -shm, and archives only
+# the snapshot this script writes.
 #
-# The bloat itself is worth fixing separately: a VACUUM on the live database
-# would return ~591MB to the filesystem. That locks the DB while it rewrites, so
-# it wants a deliberate moment rather than a backup hook.
+# Uses VACUUM INTO rather than `.backup`. Both are consistent snapshots of a live
+# database, but VACUUM INTO also compacts: this database was 93% free pages, so
+# `.backup` copied the whole bloated file while VACUUM INTO writes only live
+# pages, faster and far smaller.
+#
+# DESTINATION IS DELIBERATELY OUTSIDE THE DOCKER VOLUME.
+# borgmatic.service runs with CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+# CAP_NET_RAW. It is root, but it has no CAP_DAC_OVERRIDE, so it can read
+# anything and write only where ordinary permissions already allow it. The n8n
+# volume directory is owned by ullrich (0755), so writing the snapshot there
+# failed with EACCES the first time this hook ran under systemd -- and because
+# it is a `before` hook, that aborted the ENTIRE backup, not just this database.
+# It passed when run by hand only because an interactive root shell keeps full
+# capabilities.
+#
+# /var/lib/borgmatic is root-owned, so root writes there with no capability
+# override, and it sits inside the /var source directory so the snapshot is
+# archived. (/var/backups would NOT work: it is in exclude_patterns.)
 #
 # Runs on the host: the n8n image ships no sqlite3.
 set -euo pipefail
 
 VOL=/var/lib/docker/volumes/n8n_n8n_storage/_data
 SRC="$VOL/database.sqlite"
-DST="$VOL/database.sqlite.backup"
+DSTDIR=/var/lib/borgmatic/n8n
+DST="$DSTDIR/database.sqlite"
 
 [ -r "$SRC" ] || { echo "n8n-db-backup: cannot read $SRC" >&2; exit 1; }
 command -v sqlite3 >/dev/null || { echo "n8n-db-backup: sqlite3 not installed on the host" >&2; exit 1; }
+
+mkdir -p "$DSTDIR"
+chmod 700 "$DSTDIR"
 
 rm -f "$DST" "$DST-journal" "$DST-wal" "$DST-shm"
 
@@ -42,4 +59,4 @@ size=$(stat -c%s "$DST")
 [ "$size" -ge 1048576 ] || { echo "n8n-db-backup: copy implausibly small ($size bytes)" >&2; exit 1; }
 
 chmod 600 "$DST"
-echo "n8n-db-backup: database.sqlite -> database.sqlite.backup ($size bytes, integrity ok)"
+echo "n8n-db-backup: database.sqlite -> $DST ($size bytes, integrity ok)"
