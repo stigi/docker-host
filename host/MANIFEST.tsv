@@ -11,6 +11,9 @@
 /usr/local/bin/mdadm-notify	755	root:root
 /usr/local/bin/smartd-notify	755	root:root
 /usr/local/bin/host-drift-notify	755	root:root
+/usr/local/bin/systemd-failure-notify	755	root:root
+/etc/systemd/system/systemd-failure-notify@.service	644	root:root
+/etc/systemd/system/borgmatic.service.d/onfailure.conf	644	root:root
 /etc/systemd/system/host-drift-check.service	644	root:root
 /etc/systemd/system/host-drift-check.timer	644	root:root
 /etc/systemd/system/forgejo-runner-prune.service	644	root:root

@@ -1,0 +1,40 @@
+#!/bin/bash
+# Pushes a systemd unit failure to ntfy. Wired via OnFailure=, so it fires on
+# ANY non-zero exit, signal, timeout or start-limit -- including failures that
+# happen before the failing service gets far enough to run its own hooks.
+#
+# This complements, rather than duplicates, borgmatic's `after: error` hook.
+# That hook only runs once borgmatic is up and processing a configuration; it
+# cannot report a config that fails to parse, a missing binary, an OOM kill, or
+# ConditionACPower=true silently refusing to start the unit at all. On
+# 2026-09-29 borgmatic aborted every backup because a before-hook could not
+# write a file, and the only fast signal was that hook. If the hook itself had
+# been what broke, the next detector was BorgmaticBackupStale at 48h.
+#
+# Generic on purpose: OnFailure=systemd-failure-notify@%n.service works for any
+# unit, so the next timer added to this host gets failure reporting by writing
+# one line rather than another bespoke script.
+set -uo pipefail
+
+UNIT="${1:?usage: systemd-failure-notify <unit>}"
+TOPIC="https://ntfy.ullrich.is/zebra"
+TOKEN_FILE=/root/.ntfy-token
+
+[ -r "$TOKEN_FILE" ] || { echo "systemd-failure-notify: cannot read $TOKEN_FILE" >&2; exit 1; }
+
+result=$(systemctl show "$UNIT" -p Result --value 2>/dev/null)
+status=$(systemctl show "$UNIT" -p ExecMainStatus --value 2>/dev/null)
+# Last few journal lines give the actual reason, which is usually the whole story.
+tail=$(journalctl -u "$UNIT" -n 12 --no-pager -o cat 2>/dev/null | tail -12)
+
+curl -fsS --max-time 20 -o /dev/null \
+  -H "Authorization: Bearer $(cat "$TOKEN_FILE")" \
+  -H "Title: ${UNIT} FAILED on $(hostname -s)" \
+  -H "Priority: urgent" \
+  -H "Tags: rotating_light" \
+  -d "result=${result:-unknown} exit=${status:-?}
+
+${tail}
+
+Check: journalctl -u ${UNIT} -n 50" \
+  "$TOPIC"

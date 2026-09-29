@@ -1,0 +1,11 @@
+[Unit]
+Description=Report that %i failed, to ntfy
+# Do not inherit the failing unit's ordering; this must be able to run after it.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/systemd-failure-notify %i
+# Nothing should retry a notification into a loop.
+Restart=no
