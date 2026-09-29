@@ -48,7 +48,27 @@ services:
       - N8N_DIAGNOSTICS_ENABLED=false
       - N8N_ENCRYPTION_KEY={{DOCKER-SECRET:N8N_ENCRYPTION_KEY}}
       - NODE_ENV=production
-      - WEBHOOK_URL=https://n8n.ullrich.is/
+      # 2026-09-29: renamed from WEBHOOK_URL, which n8n 2.x deprecates. The new
+      # name sets the base URL for both test and production webhooks.
+      - N8N_WEBHOOK_URL=https://n8n.ullrich.is/
+      
+      # The four below are deprecation warnings of the form "this default will
+      # change in a future version". Pinning them explicitly is the same problem
+      # as pinning an image tag: without it, an upgrade silently changes behaviour.
+      # Each is set to the NEW default rather than the current one, because the
+      # evidence says the new value is both sufficient and safer here.
+      #
+      # 0 community packages are installed (installed_packages and installed_nodes
+      # are both empty), so allowing unverified ones buys nothing and costs a
+      # supply-chain hole on a publicly reachable instance.
+      - N8N_UNVERIFIED_PACKAGES_ENABLED=false
+      # 32 recorded executions, longest 4.9s. 60s is ample; the old 300s only
+      # delays noticing a wedged task.
+      - N8N_RUNNERS_TASK_TIMEOUT=60
+      # No workflow here uses a compression node, so these are pure zip-bomb
+      # guards. 256MiB and 1000 entries are the incoming defaults.
+      - N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES=268435456
+      - N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES=1000
       - GENERIC_TIMEZONE=Europe/Berlin
     # n8n Assistant sandbox. The LLM (OpenRouter) key is set in the UI, not here.
       - N8N_INSTANCE_AI_SANDBOX_ENABLED=true
