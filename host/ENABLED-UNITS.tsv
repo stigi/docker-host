@@ -17,3 +17,7 @@ mdmonitor.service	static
 fail2ban.service	enabled
 auditd.service	enabled
 lynis.timer	enabled
+# fstrim is tracked as MASKED, not merely absent: this file exists so that a
+# restored host behaves as designed, and 'nobody re-enabled fstrim' is part of
+# that. Both disks report DISC-GRAN=0B -- they cannot discard at all.
+fstrim.timer	masked
