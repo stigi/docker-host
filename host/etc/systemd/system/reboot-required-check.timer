@@ -1,0 +1,20 @@
+[Unit]
+Description=Daily check for a pending reboot
+
+[Timer]
+# 08:00, clear of everything else in the documented IO schedule on this box:
+#   logrotate            00:05
+#   borgmatic            00:25-03:00 (daily + RandomizedDelaySec)
+#   smartd short test    04:00
+#   unattended-upgrades  ~06:15
+#   reboot-required      08:00 (+30m jitter)   <- this
+#   forgejo runner prune Sun 14:00
+#   sandbox prune        Sun 15:00
+#   host drift check     Sun 16:00
+#   lynis audit          Sun 18:00
+OnCalendar=*-*-* 08:00:00
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,79 @@
+#!/bin/bash
+# Reports that the host is running a kernel (or libraries) it has already been
+# patched away from.
+#
+# unattended-upgrades is enabled here and installs security updates, but
+# Unattended-Upgrade::Automatic-Reboot is unset, so it defaults to false. That
+# is the right choice on a box running ~50 containers -- an unattended reboot in
+# the middle of a borgmatic run or a CI job is worse than a delayed patch -- but
+# it means a kernel fix lands on disk and then sits there, inert, until someone
+# reboots. Nothing previously said so. A Debian kernel advisory (DSA-6528-1,
+# 2026-09-29) prompted the check that found this gap; that advisory did not
+# apply here, but the next Ubuntu USN will.
+#
+# Deliberately NOT a daily "still pending" ping. An alert that fires every
+# morning for a week gets muted, and a muted alert is worse than no alert. It
+# notifies when the state appears, again if the package list changes, and
+# otherwise only as a weekly reminder.
+#
+# Paths are overridable so this can be exercised without touching real system
+# state.
+set -uo pipefail
+
+FLAG=${REBOOT_REQUIRED_FILE:-/var/run/reboot-required}
+PKGS=${REBOOT_REQUIRED_PKGS:-/var/run/reboot-required.pkgs}
+STATE_DIR=${REBOOT_NOTIFY_STATE_DIR:-/var/lib/reboot-required-notify}
+TOPIC=${NTFY_TOPIC:-https://ntfy.ullrich.is/zebra}
+TOKEN_FILE=${NTFY_TOKEN_FILE:-/root/.ntfy-token}
+REMIND_AFTER=${REMIND_AFTER_SECONDS:-604800}   # 7 days
+
+STATE="$STATE_DIR/last-notified"
+mkdir -p "$STATE_DIR"; chmod 700 "$STATE_DIR"
+
+if [ ! -e "$FLAG" ]; then
+  # Cleared -- forget any previous episode so the next one notifies immediately.
+  [ -e "$STATE" ] && { rm -f "$STATE"; echo "reboot-required-notify: no reboot pending (state cleared)"; } \
+                  || echo "reboot-required-notify: no reboot pending"
+  exit 0
+fi
+
+pkgs=$(sort -u "$PKGS" 2>/dev/null | tr '\n' ' ' | sed 's/ *$//')
+[ -z "$pkgs" ] && pkgs="(package list unavailable)"
+sig=$(printf '%s' "$pkgs" | sha256sum | cut -d' ' -f1)
+now=$(date +%s)
+
+if [ -r "$STATE" ]; then
+  read -r prev_sig prev_time < "$STATE" 2>/dev/null || { prev_sig=""; prev_time=0; }
+  age=$(( now - ${prev_time:-0} ))
+  if [ "$sig" = "${prev_sig:-}" ] && [ "$age" -lt "$REMIND_AFTER" ]; then
+    echo "reboot-required-notify: already reported ${age}s ago, same packages; staying quiet"
+    exit 0
+  fi
+fi
+
+booted=$(uname -r)
+newest=$(ls -1 /boot/vmlinuz-* 2>/dev/null | sed 's|.*/vmlinuz-||' | sort -V | tail -1)
+kernel_note="booted ${booted}"
+[ -n "$newest" ] && [ "$newest" != "$booted" ] && kernel_note="booted ${booted}, newest installed ${newest}  <-- kernel change pending"
+
+[ -r "$TOKEN_FILE" ] || { echo "reboot-required-notify: cannot read $TOKEN_FILE" >&2; exit 1; }
+
+if curl -fsS --max-time 20 -o /dev/null \
+  -H "Authorization: Bearer $(cat "$TOKEN_FILE")" \
+  -H "Title: reboot required on $(hostname -s)" \
+  -H "Priority: high" \
+  -H "Tags: warning,arrows_counterclockwise" \
+  -d "${kernel_note}
+
+Updates are installed but not active until reboot.
+Packages: ${pkgs}
+
+Reboot when convenient -- unattended reboots are off on purpose here." \
+  "$TOPIC"; then
+  printf '%s %s\n' "$sig" "$now" > "$STATE"
+  chmod 600 "$STATE"
+  echo "reboot-required-notify: notified (${kernel_note})"
+else
+  echo "reboot-required-notify: ntfy push failed" >&2
+  exit 1
+fi
