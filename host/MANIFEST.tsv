@@ -15,6 +15,9 @@
 /usr/local/bin/reboot-required-notify	755	root:root
 /etc/systemd/system/reboot-required-check.service	644	root:root
 /etc/systemd/system/reboot-required-check.timer	644	root:root
+/usr/local/bin/pending-updates-notify	755	root:root
+/etc/systemd/system/pending-updates-check.service	644	root:root
+/etc/systemd/system/pending-updates-check.timer	644	root:root
 /etc/systemd/system/systemd-failure-notify@.service	644	root:root
 /etc/systemd/system/borgmatic.service.d/onfailure.conf	644	root:root
 /etc/systemd/system/logrotate.service.d/onfailure.conf	644	root:root

@@ -1,0 +1,19 @@
+[Unit]
+Description=Daily check for updates needing a manual apt
+
+[Timer]
+# 08:30, after apt-daily-upgrade (~06:00) has taken everything it can, so what
+# remains is genuinely the manual set. Slots into the documented IO schedule:
+#   logrotate            00:05
+#   borgmatic            00:25-03:00
+#   smartd short test    04:00
+#   unattended-upgrades  ~06:15
+#   reboot-required      08:00 (+30m jitter)
+#   pending-updates      08:30 (+30m jitter)   <- this
+#   Sunday maintenance   14:00-18:00
+OnCalendar=*-*-* 08:30:00
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

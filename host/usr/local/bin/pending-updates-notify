@@ -1,0 +1,78 @@
+#!/bin/bash
+# Reports upgradable packages that unattended-upgrades will NOT install.
+#
+# Allowed-Origins here covers Ubuntu and ESM pockets only, so anything from a
+# third-party repository is never upgraded automatically. On this host that is
+# docker-ce and containerd.io -- the runtime every one of ~50 containers sits
+# on, and a plausible container-escape surface. Those updates would otherwise
+# sit available and uninstalled indefinitely, with nothing saying so.
+#
+# Docker was deliberately NOT added to Allowed-Origins instead: live-restore is
+# off, so an unattended docker-ce upgrade at 06:00 would stop and restart every
+# container without warning, possibly mid-backup. Alerting leaves the timing to
+# a human; that is the same trade as Automatic-Reboot being off.
+#
+# Not Docker-specific on purpose: it asks unattended-upgrades what it WOULD do
+# and reports the difference against what apt says is upgradable. Any future
+# third-party repository is covered without editing this script.
+#
+# Throttled like reboot-required-notify: notify when the set appears, again if
+# the set changes, otherwise a weekly reminder. A daily "still pending" ping
+# would get muted, and a muted alert is worse than none.
+set -uo pipefail
+
+STATE_DIR=${PENDING_NOTIFY_STATE_DIR:-/var/lib/pending-updates-notify}
+TOPIC=${NTFY_TOPIC:-https://ntfy.ullrich.is/zebra}
+TOKEN_FILE=${NTFY_TOKEN_FILE:-/root/.ntfy-token}
+REMIND_AFTER=${REMIND_AFTER_SECONDS:-604800}
+STATE="$STATE_DIR/last-notified"
+mkdir -p "$STATE_DIR"; chmod 700 "$STATE_DIR"
+
+upgradable=$(apt list --upgradable 2>/dev/null | grep -v '^Listing' | cut -d/ -f1 | sort -u)
+[ -z "$upgradable" ] && { echo "pending-updates-notify: nothing upgradable"; [ -e "$STATE" ] && rm -f "$STATE"; exit 0; }
+
+# Ask unattended-upgrades what it would take, rather than re-deriving its
+# origin matching (which includes ESM patterns and is easy to get subtly wrong).
+uu=$(timeout 300 unattended-upgrade --dry-run --verbose 2>/dev/null \
+     | sed -n 's/^Packages that will be upgraded: //p' | tr ' ' '\n' | sed '/^$/d' | sort -u)
+
+manual=$(comm -23 <(printf '%s\n' "$upgradable") <(printf '%s\n' "${uu:-}"))
+if [ -z "$manual" ]; then
+  echo "pending-updates-notify: all $(printf '%s\n' "$upgradable" | wc -l) upgradable package(s) are handled automatically"
+  [ -e "$STATE" ] && rm -f "$STATE"
+  exit 0
+fi
+
+count=$(printf '%s\n' "$manual" | wc -l)
+detail=$(apt list --upgradable 2>/dev/null | grep -v '^Listing' \
+         | grep -F -f <(printf '%s/\n' $manual) | sed 's/\[upgradable from: /<- /;s/\]//' | head -20)
+sig=$(printf '%s' "$manual" | sha256sum | cut -d' ' -f1)
+now=$(date +%s)
+
+if [ -r "$STATE" ]; then
+  read -r prev_sig prev_time < "$STATE" 2>/dev/null || { prev_sig=""; prev_time=0; }
+  if [ "$sig" = "${prev_sig:-}" ] && [ $(( now - ${prev_time:-0} )) -lt "$REMIND_AFTER" ]; then
+    echo "pending-updates-notify: same $count package(s) already reported; staying quiet"
+    exit 0
+  fi
+fi
+
+[ -r "$TOKEN_FILE" ] || { echo "pending-updates-notify: cannot read $TOKEN_FILE" >&2; exit 1; }
+if curl -fsS --max-time 20 -o /dev/null \
+  -H "Authorization: Bearer $(cat "$TOKEN_FILE")" \
+  -H "Title: ${count} update(s) need a manual apt on $(hostname -s)" \
+  -H "Priority: default" \
+  -H "Tags: package" \
+  -d "unattended-upgrades will not install these -- they are outside its
+Allowed-Origins (Ubuntu + ESM only).
+
+${detail}
+
+Upgrading docker-ce or containerd.io restarts dockerd, and live-restore is
+off, so every container bounces. Pick the moment." \
+  "$TOPIC"; then
+  printf '%s %s\n' "$sig" "$now" > "$STATE"; chmod 600 "$STATE"
+  echo "pending-updates-notify: notified about $count package(s)"
+else
+  echo "pending-updates-notify: ntfy push failed" >&2; exit 1
+fi

@@ -1,0 +1,15 @@
+[Unit]
+Description=Report updates that unattended-upgrades will not install
+Documentation=file:///home/docker-host/repo/host/README.md
+After=network-online.target
+Wants=network-online.target
+# Report failures to ntfy; see systemd-failure-notify@.service.
+OnFailure=systemd-failure-notify@%n.service
+
+[Service]
+Type=oneshot
+# Runs `unattended-upgrade --dry-run`, which reads the apt cache. Cheap, but
+# this host is spinning disks, so it queues behind anything real.
+IOSchedulingClass=idle
+Nice=19
+ExecStart=/usr/local/bin/pending-updates-notify
