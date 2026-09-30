@@ -137,7 +137,6 @@ exclude_patterns:
     # Excluding it removes the hot copy of a running cluster AND its 16 MB
     # pg_wal segments, which is what produced Borg's "file changed while we
     # backed it up" warning.
-    - /home/docker-host/repo/services/mastodon/volumes/postgresql
     - /home/docker-host/repo/services/mastodon/volumes/postgresql-18
 
     # Authelia Postgres data directory. Superseded by the streamed pg_dump in
@@ -145,7 +144,6 @@ exclude_patterns:
     # postgres:15 (25/25 tables, every row count identical including
     # totp_configurations and webauthn_credentials, 0 invalid indexes,
     # 15 foreign keys) before this line was added.
-    - /home/docker-host/repo/core/authelia/volumes/postgres
     - /home/docker-host/repo/core/authelia/volumes/postgres-18
 
     # cal.com and Plausible Postgres data directories. Superseded by the
@@ -153,7 +151,6 @@ exclude_patterns:
     # into throwaway postgres:16 containers -- cal 80 tables / 515 rows and
     # Plausible 41 tables / 14,341 rows, every table matching exactly,
     # 0 invalid indexes, 138 and 40 foreign keys.
-    - /var/lib/docker/volumes/cal_database-data
     - /var/lib/docker/volumes/cal_database-data-18
     - /var/lib/docker/volumes/plausible_db-data
 
