@@ -1,0 +1,19 @@
+[Unit]
+Description=Restart containers bind-mounting docker.sock after dockerd restarts
+Documentation=file:///home/docker-host/repo/host/README.md
+# Must run after the daemon is back, and must be re-run every time it restarts.
+After=docker.service
+PartOf=docker.service
+# Report failures to ntfy; see systemd-failure-notify@.service.
+OnFailure=systemd-failure-notify@%n.service
+
+[Service]
+Type=oneshot
+# docker.service being "active" does not mean the API answers yet.
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 45); do docker info >/dev/null 2>&1 && exit 0; sleep 2; done; echo "docker API never became ready" >&2; exit 1'
+ExecStart=/usr/local/bin/restart-socket-proxies
+IOSchedulingClass=idle
+Nice=19
+
+[Install]
+WantedBy=docker.service

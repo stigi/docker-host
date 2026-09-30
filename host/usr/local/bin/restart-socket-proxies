@@ -1,0 +1,42 @@
+#!/bin/bash
+# Restart containers that bind-mount /var/run/docker.sock, after dockerd restarts.
+#
+# live-restore keeps containers running across a daemon restart, which is what
+# we want -- but dockerd UNLINKS AND RECREATES /var/run/docker.sock when it
+# starts. A container that bind-mounts that path keeps its original mount, which
+# now points at a deleted inode. The container is alive and healthy-looking, and
+# every call it makes to the Docker API fails.
+#
+# On 2026-09-30 this took the whole site down after a docker-ce upgrade: all 53
+# containers survived (live-restore worked exactly as intended), but the five
+# tecnativa/docker-socket-proxy containers were talking to a dead socket, so
+# HAProxy answered 503 and caddy-docker-proxy could no longer enumerate
+# containers to build its routes. Every vhost returned connection-refused while
+# the containers behind them were perfectly healthy.
+#
+# Without live-restore this never happened, because everything restarted anyway.
+# It is the price of the feature, not a bug in it.
+set -uo pipefail
+
+mapfile -t targets < <(
+  docker ps --format '{{.Names}}' 2>/dev/null | while read -r n; do
+    docker inspect "$n" --format '{{range .Mounts}}{{if eq .Source "/var/run/docker.sock"}}{{$.Name}}{{end}}{{end}}' 2>/dev/null \
+      | sed 's|^/||' | grep -q . && echo "$n"
+  done
+)
+
+if [ "${#targets[@]}" -eq 0 ]; then
+  echo "restart-socket-proxies: no containers bind-mount /var/run/docker.sock"
+  exit 0
+fi
+
+rc=0
+for c in "${targets[@]}"; do
+  if docker restart "$c" >/dev/null 2>&1; then
+    echo "restart-socket-proxies: restarted $c"
+  else
+    echo "restart-socket-proxies: FAILED to restart $c" >&2
+    rc=1
+  fi
+done
+exit $rc

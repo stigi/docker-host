@@ -10,6 +10,7 @@
 borgmatic.timer	enabled
 smartmontools.service	enabled
 docker.service	enabled
+docker-socket-refresh.service	enabled
 host-drift-check.timer	enabled
 forgejo-runner-prune.timer	enabled
 sandbox-prune.timer	enabled

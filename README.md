@@ -106,7 +106,24 @@ settings there are load-bearing and not obvious:
   29.x refuses anything below 1.40.
 
 **`live-restore` is enabled**, so restarting dockerd no longer stops
-containers. Verified 2026-09-30: 53 of 53 containers kept their original start
+containers.
+
+It has one sharp edge, and it bit hard on 2026-09-30. dockerd unlinks and
+recreates `/var/run/docker.sock` when it starts. A container that bind-mounts
+that path keeps its original mount, now pointing at a deleted inode -- the
+container looks alive and healthy while every Docker API call it makes fails.
+After a `docker-ce` upgrade all 53 containers survived exactly as intended, but
+the five socket proxies were talking to a dead socket, HAProxy answered 503, and
+caddy-docker-proxy could no longer enumerate containers to build its routes.
+Every vhost returned connection-refused while the services behind them were
+fine. Without live-restore this never happened, because everything restarted
+anyway; it is the price of the feature, not a bug in it.
+
+`docker-socket-refresh.service` (`PartOf=docker.service`) now restarts anything
+bind-mounting the socket whenever dockerd starts. It selects by mount, not by
+name, so it also catches `trails-brouter-promtail`. Verified: a daemon restart
+leaves 47 of 53 containers untouched, restarts exactly the 6 that mount the
+socket, and every vhost answers with no manual intervention. Verified 2026-09-30: 53 of 53 containers kept their original start
 times across `systemctl restart docker`, which also took 27s instead of the
 353s a cold bounce of this host costs.
 
