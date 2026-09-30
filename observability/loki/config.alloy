@@ -1,0 +1,173 @@
+loki.source.file "system" {
+	targets = [{
+		__address__ = "localhost",
+		__path__    = "/var/log/*log",
+		job         = "varlogs",
+	}]
+	forward_to = [loki.write.default.receiver]
+
+	file_match {
+		enabled = true
+	}
+	legacy_positions_file = "/var/lib/alloy/data/promtail-positions.yaml"
+}
+
+loki.process "fail2ban" {
+	forward_to = [loki.write.default.receiver]
+
+	stage.multiline {
+		firstline     = "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}"
+		max_lines     = 128    // promtail's default; the converter emitted 0
+		max_wait_time = "3s"   // alloy rejects 0; 3s is promtail's default
+	}
+
+	stage.regex {
+		expression = "^(?s)(?P<time>\\S+? \\S+?) (fail2ban\\.)(?P<component>\\S+)\\s* \\[(?P<pid>\\S+)\\]: (?P<priority>\\S+)\\s* (?P<message>.*?)$"
+	}
+
+	stage.timestamp {
+		source = "time"
+		format = "2006-01-02 15:04:05,000"
+	}
+
+	stage.labels {
+		values = {
+			component = null,
+			priority  = null,
+		}
+	}
+
+	stage.output {
+		source = "message"
+	}
+
+	stage.match {
+		selector = "{job=\"fail2ban\"} |~ \"\\\\\\\\[\\\\\\\\S+\\\\\\\\] .*\""
+
+		stage.regex {
+			expression = "(\\[(?P<jail>\\S+)\\] )?(?P<message>.*?)$"
+		}
+
+		stage.labels {
+			values = {
+				jail = null,
+			}
+		}
+
+		stage.output {
+			source = "message"
+		}
+	}
+
+	stage.label_drop {
+		values = ["filename"]
+	}
+}
+
+loki.source.file "fail2ban" {
+	targets = [{
+		__address__ = "localhost",
+		__path__    = "/var/log/fail2ban.log",
+		app         = "fail2ban",
+		instance    = "zebra",
+	}]
+	forward_to = [loki.process.fail2ban.receiver]
+
+	file_match {
+		enabled = true
+	}
+	legacy_positions_file = "/var/lib/alloy/data/promtail-positions.yaml"
+}
+
+loki.process "ufw" {
+	forward_to = [loki.write.default.receiver]
+
+	stage.regex {
+		expression = "^(?s)(?P<time>\\S+? \\S+? \\S+?) (?P<hostname>\\S+?) kernel: \\[(?P<kerneltime>.*?)\\] \\[(?P<ufwaction>.*?)\\] (?P<message>.*?)$"
+	}
+
+	stage.timestamp {
+		source = "time"
+		format = "2006-01-02 15:04:05,000"
+	}
+
+	stage.labels {
+		values = {
+			hostname  = null,
+			ufwaction = null,
+		}
+	}
+
+	stage.output {
+		source = "message"
+	}
+
+	stage.label_drop {
+		values = ["filename"]
+	}
+}
+
+loki.source.file "ufw" {
+	targets = [{
+		__address__ = "localhost",
+		__path__    = "/var/log/ufw.log",
+		app         = "ufw",
+		instance    = "zebra",
+	}]
+	forward_to = [loki.process.ufw.receiver]
+
+	file_match {
+		enabled = true
+	}
+	legacy_positions_file = "/var/lib/alloy/data/promtail-positions.yaml"
+}
+
+discovery.docker "containers" {
+	host             = "tcp://docker-socket-proxy:2375"
+	refresh_interval = "15s"
+}
+
+discovery.relabel "containers" {
+	targets = []
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "container"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_log_stream"]
+		target_label  = "stream"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+		target_label  = "compose_project"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "compose_service"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = "zebra"
+	}
+}
+
+loki.source.docker "containers" {
+	host             = "tcp://docker-socket-proxy:2375"
+	targets          = discovery.docker.containers.targets
+	forward_to       = [loki.write.default.receiver]
+	relabel_rules    = discovery.relabel.containers.rules
+	refresh_interval = "15s"
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+	external_labels = {}
+}

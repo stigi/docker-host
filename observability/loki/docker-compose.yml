@@ -20,23 +20,31 @@ services:
       options:
         mode: non-blocking
 
-  promtail:
-    # PINNED to match loki above. This container was running an UNTAGGED 23-month
-    # -old digest while its compose said `:latest`; a `docker compose pull` on
-    # 2026-09-25 cached a far newer image, so `up -d` would have jumped it ~2
-    # years in one step.
-    image: grafana/promtail:3.1.2
+  alloy:
+    # Replaces promtail, which Grafana has moved into maintenance in favour of
+    # Alloy. config.alloy was produced by `alloy convert --source-format=promtail`
+    # from the previous promtail-config.yaml rather than hand-written.
+    image: grafana/alloy:v1.20.1
     restart: unless-stopped
-    # promtail's docker client defaults to API 1.24 and does not negotiate
-    # through the proxy; Docker 29.x refuses anything below 1.40.
-    environment:
-      DOCKER_API_VERSION: '1.44'
     networks:
       - internal
+    environment:
+      # Same reason promtail needed it: the docker client defaults to API 1.24
+      # and does not negotiate through the socket proxy; Docker 29.x refuses
+      # anything below 1.40.
+      DOCKER_API_VERSION: '1.44'
     volumes:
-      - /var/log:/var/log
-      - ./promtail-config.yaml:/etc/promtail-config.yaml
-    command: -config.file=/etc/promtail-config.yaml
+      - /var/log:/var/log:ro
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      # alloy's position store, seeded once from promtail's /tmp/positions.yaml
+      # so the switch did not re-ingest ~119MB of host logs as duplicates
+      # (kern.log 36M, ufw.log 35M). config.alloy reads it via
+      # legacy_positions_file.
+      - alloy_data:/var/lib/alloy/data
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
 
   # Promtail needs container metadata (names, labels) to tag log streams, which
   # means the Docker API. Same pattern as caddy, cadvisor, flame and diun on this
@@ -71,4 +79,5 @@ networks:
     external: true
 
 volumes:
+  alloy_data:
   loki_data:
