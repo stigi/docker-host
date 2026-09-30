@@ -79,3 +79,36 @@ scrape_configs:
           source: message
       - labeldrop:
           - filename
+
+  # Container logs. Until 2026-09-30 these bypassed promtail entirely: the Loki
+  # Docker plugin shipped them straight from dockerd. That plugin was removed
+  # because it made `live-restore` unsafe (48 of 52 containers used it, and a
+  # plugin log driver is the weak spot when restoring containers across a daemon
+  # restart), because `mode: non-blocking` silently DROPPED logs whenever Loki
+  # was unreachable, and because upgrading the plugin required stopping every
+  # container using it.
+  #
+  # Now containers write json-file locally (rotated 10m x 3 via daemon.json) and
+  # promtail reads them through the Docker API. Logs therefore survive Loki being
+  # down -- they sit on disk and promtail catches up -- which the plugin could
+  # not do.
+  #
+  # Service discovery rather than a file glob on /var/lib/docker/containers: the
+  # files are named by container ID, so a glob would label everything with a hex
+  # string. The API gives real container names and compose labels.
+  - job_name: containers
+    docker_sd_configs:
+      - host: tcp://docker-socket-proxy:2375
+        refresh_interval: 15s
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: 'stream'
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: 'compose_project'
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: 'compose_service'
+      - target_label: 'instance'
+        replacement: 'zebra'

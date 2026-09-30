@@ -27,12 +27,40 @@ services:
     # years in one step.
     image: grafana/promtail:3.1.2
     restart: unless-stopped
+    # promtail's docker client defaults to API 1.24 and does not negotiate
+    # through the proxy; Docker 29.x refuses anything below 1.40.
+    environment:
+      DOCKER_API_VERSION: '1.44'
     networks:
       - internal
     volumes:
       - /var/log:/var/log
       - ./promtail-config.yaml:/etc/promtail-config.yaml
     command: -config.file=/etc/promtail-config.yaml
+
+  # Promtail needs container metadata (names, labels) to tag log streams, which
+  # means the Docker API. Same pattern as caddy, cadvisor, flame and diun on this
+  # host: a read-only proxy exposing only the endpoints needed, never the raw
+  # socket. CONTAINERS covers list/inspect and /containers/{id}/logs; EVENTS lets
+  # promtail notice containers starting and stopping without polling hard.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      EVENTS: 1
+      # NETWORKS is required, not optional: promtail's docker discovery computes
+      # network labels for every target, which hits /networks. Without it the proxy
+      # returns 403 and discovery fails wholesale -- containers list fine, then no
+      # targets are produced at all.
+      NETWORKS: 1
+      VERSION: 1
+      PING: 1
+      INFO: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - internal
 
 networks:
   internal:

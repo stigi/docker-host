@@ -73,7 +73,42 @@ services:
 
 ### Observability
 
-*wip*
+Prometheus + Grafana + Loki, with Grafana behind Authelia SSO.
+
+**Logs reach Loki by two paths.** Host logs (`/var/log/*`, fail2ban, ufw) are
+tailed from files by promtail. Container logs are written locally by Docker's
+`json-file` driver -- rotated `max-size 10m`, `max-file 3` via
+`/etc/docker/daemon.json` -- and promtail reads them through the Docker API,
+labelling each stream `container`, `compose_project` and `compose_service`.
+
+Until 2026-09-30 container logs used the **Loki Docker plugin** instead,
+shipping straight out of dockerd. It was removed because:
+
+- a plugin log driver is the weak spot when restoring containers across a
+  daemon restart, and 48 of 52 containers used it, which made `live-restore`
+  too risky to enable;
+- `mode: non-blocking` meant logs were silently **dropped** whenever Loki was
+  unreachable -- precisely when you want them;
+- upgrading the plugin required stopping every container using it.
+
+Logs now survive Loki being down: they sit on disk and promtail catches up.
+
+Promtail reaches the Docker API through `tecnativa/docker-socket-proxy`, the
+same pattern as caddy, cadvisor, flame and diun -- never the raw socket. Two
+settings there are load-bearing and not obvious:
+
+- `NETWORKS: 1` is **required**. Promtail's docker discovery computes network
+  labels for every target; without it the proxy returns 403 and discovery
+  fails wholesale, producing no targets at all while the container list still
+  works.
+- `DOCKER_API_VERSION: '1.44'` is pinned on promtail. Its docker client
+  defaults to API 1.24 and does not negotiate through the proxy, and Docker
+  29.x refuses anything below 1.40.
+
+**`live-restore` is enabled**, so restarting dockerd no longer stops
+containers. Verified 2026-09-30: 53 of 53 containers kept their original start
+times across `systemctl restart docker`, which also took 27s instead of the
+353s a cold bounce of this host costs.
 
 ## Other Container config
 
@@ -105,14 +140,32 @@ against the next commit that touches the same `.secret` file.
 
 ### Automatic Docker Image Updates
 
-*wip*
+There are none, deliberately. Every image is pinned to a version tag, or to a
+digest where the upstream publishes no tag matching the build in use. An
+unattended `docker compose pull` here would cross majors and run irreversible
+database migrations -- n8n was one pull away from exactly that.
 
-I'm still experimenting with DIUN and Watchtower, trying to decide on one.
+OS packages are a different matter: `unattended-upgrades` installs Ubuntu and
+ESM security updates automatically. It does **not** cover third-party
+repositories, so `docker-ce` and `containerd.io` are never upgraded on their
+own. That is intentional rather than an oversight -- upgrading them restarts
+dockerd, and while `live-restore` now makes that non-disruptive, the timing
+should still be chosen rather than arriving at 06:00.
+
+`pending-updates-check.timer` reports anything apt can upgrade that
+unattended-upgrades will not touch, and `reboot-required-check.timer` reports
+when installed updates need a reboot to take effect. See `host/`.
 
 
 ## Backup
 
-I run backups via [borgmatic](https://github.com/borgmatic-collective/borgmatic) to [BorgBase](https://www.borgbase.com). The config for this currently lives outside this repo
+I run backups via [borgmatic](https://github.com/borgmatic-collective/borgmatic) to [BorgBase](https://www.borgbase.com).
+
+The config is tracked here at `host/etc/borgmatic/config.yaml` (it used to live
+outside the repo). Databases are dumped by hooks rather than archived as live
+data directories, and those directories are explicitly excluded -- a raw
+Postgres or SQLite file copied while the server is running is not guaranteed to
+restore. See `host/` for the hooks and the reasoning.
 
 
 # Handy scripts
@@ -120,6 +173,11 @@ I run backups via [borgmatic](https://github.com/borgmatic-collective/borgmatic)
 ## Recreate all docker compose containers in all subdirectories
 
 This helped me a couple of times, i.e. when changing the default log options.
+
+Note it recreates everything as fast as it can. On this host that is a ~50
+container stampede against spinning disks; doing it in one go pushed
+`/proc/pressure/io` `full avg10` past 70. If you need it, throttle between
+projects and watch that number.
 
 ```
 find . -maxdepth 1 -type d \( ! -name . \) -exec bash -c "cd '{}' && docker compose up -d --force-recreate" \;
