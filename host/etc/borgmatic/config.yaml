@@ -39,6 +39,7 @@ exclude_patterns:
     # trails.cool derived data — refetched from brouter.de / regenerated
     - /home/trails/brouter/segments
     - /home/trails/brouter/poi-extract
+    - /home/trails/brouter/photon
 
     # audiobookshelf: podcast episodes are re-downloadable from RSS feeds
     - /home/docker-host/repo/services/audiobookshelf/volumes/podcasts
