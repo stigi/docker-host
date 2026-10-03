@@ -49,8 +49,8 @@
 # entry is `nofail`, and if the SSD is missing, Docker must refuse to start the
 # stack instead of creating empty directories on root -- that would refill
 # root's inodes and, for runner-state, re-run registration with an empty token.
-# The old named volumes (forgejo-runners_dind-data/_ws/_runner-state) are no
-# longer referenced and can be removed once the SSD setup has proven itself.
+# The old named volumes (forgejo-runners_dind-data/_ws/_runner-state) were
+# removed on 2026-10-03 after the SSD setup had run real CI.
 name: forgejo-runners
 
 x-ssd: &ssd

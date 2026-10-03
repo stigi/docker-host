@@ -52,18 +52,13 @@ exclude_patterns:
     - /var/lib/docker/tmp
     - /var/lib/containerd
 
-    # Forgejo CI runners — DinD overlays + workspaces churn on every job.
-    # Volume names as of the 2026-09-25 single-slot rewrite:
-    #   forgejo-runners_dind-data   docker image/layer cache for CI
-    #   forgejo-runners_ws          job workspaces
-    #   forgejo-runners_dind-sock   socket only
-    #   forgejo-runners_runner-state  .runner registration + act cache
-    # NOTE: runner-state holds the ONLY copy of the runner's registration token.
-    # This wildcard was written for the churn volumes; the 2026-09-27 migration
-    # to a named volume brought the registration inside its reach. That is
-    # accepted: re-registering is a documented two-minute job (see the error
-    # message in services/forgejo-runners/register-init.sh), and the alternative
-    # is archiving a live credential plus a multi-GB act cache nightly.
+    # Forgejo CI runners. Since 2026-10-03 dind-data, ws and runner-state live
+    # on the worker SSD at /srv/forgejo-runners, which is outside
+    # source_directories and so is never backed up -- including the runner's
+    # registration token (.runner). That is accepted: re-registering is a
+    # documented two-minute job (see services/forgejo-runners/register-init.sh).
+    # Only forgejo-runners_dind-sock (socket only) remains under this path; the
+    # wildcard stays so any future runner volume here is excluded by default.
     - /var/lib/docker/volumes/forgejo-runners_*
     # NOT excluded, deliberately: Prometheus's WAL
     # (/var/lib/docker/volumes/prometheus_prometheus-data/_data/wal). Borg logs
