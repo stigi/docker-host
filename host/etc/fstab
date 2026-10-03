@@ -1,0 +1,12 @@
+proc /proc proc defaults 0 0
+/dev/md/0 /boot ext3 defaults 0 0
+# /dev/md/1 belongs to LVM volume group 'vg0'
+/dev/vg0/root  /  ext4  defaults 0 0
+/dev/vg0/swap  swap  swap  defaults 0 0
+/dev/vg0/tmp  /tmp  ext4  defaults 0 0
+/dev/vg0/home  /home  ext4  defaults 0 0
+/dev/ssd/photon  /home/trails/brouter/photon  ext4  defaults,noatime  0 2
+# Forgejo runner state (dind image/build cache, workspaces, runner registration).
+# nofail: a dead SSD must not block boot; compose binds use create_host_path: false
+# so the stack refuses to start rather than fall back to the root LV.
+/dev/ssd/worker  /srv/forgejo-runners  ext4  defaults,noatime,nofail  0 2

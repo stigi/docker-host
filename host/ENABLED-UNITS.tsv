@@ -20,7 +20,9 @@ auditd.service	enabled
 lynis.timer	enabled
 reboot-required-check.timer	enabled
 pending-updates-check.timer	enabled
-# fstrim is tracked as MASKED, not merely absent: this file exists so that a
-# restored host behaves as designed, and 'nobody re-enabled fstrim' is part of
-# that. Both disks report DISC-GRAN=0B -- they cannot discard at all.
-fstrim.timer	masked
+# fstrim was MASKED from 2026-09-29 (58b05cf): the RAID disks sda/sdb report
+# DISC-GRAN=0B and cannot discard at all. Unmasked 2026-10-03 when the SSD
+# (sdc, VG `ssd`, DISC-GRAN=4K) was added. fstrim.service runs with
+# --quiet-unsupported, so it trims only the SSD filesystems and skips the RAID
+# ones without walking them.
+fstrim.timer	enabled
