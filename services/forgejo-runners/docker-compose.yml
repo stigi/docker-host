@@ -40,7 +40,23 @@
 # credential inside a git working tree, where `git clean -xdf` destroys the
 # registration -- and FORGEJO_RUNNER_TOKEN is empty, so recovery means minting
 # a new token by hand in Forgejo's admin UI.
+#
+# 2026-10-03: dind-data, ws and runner-state moved off the 7200 RPM RAID onto a
+# dedicated SSD (LV ssd/worker, mounted at /srv/forgejo-runners via /etc/fstab).
+# IO was the measured binding constraint (see capacity notes in config.yml).
+# /srv is outside borgmatic's source_directories, so the backup reasoning above
+# still holds. The binds use create_host_path: false on purpose: the fstab
+# entry is `nofail`, and if the SSD is missing, Docker must refuse to start the
+# stack instead of creating empty directories on root -- that would refill
+# root's inodes and, for runner-state, re-run registration with an empty token.
+# The old named volumes (forgejo-runners_dind-data/_ws/_runner-state) are no
+# longer referenced and can be removed once the SSD setup has proven itself.
 name: forgejo-runners
+
+x-ssd: &ssd
+  type: bind
+  bind:
+    create_host_path: false
 
 services:
   dind:
@@ -64,9 +80,9 @@ services:
     # concurrency. Leaves 2 of 8 cores for the box's other ~47 containers.
     cpus: 6
     volumes:
-      - dind-data:/var/lib/docker
+      - { <<: *ssd, source: /srv/forgejo-runners/dind-data, target: /var/lib/docker }
       - dind-sock:/var/run/docker-shared
-      - ws:/workspace
+      - { <<: *ssd, source: /srv/forgejo-runners/ws, target: /workspace }
       - ./daemon.json:/etc/docker/daemon.json:ro
     healthcheck:
       test: ["CMD", "docker", "--host=unix:///var/run/docker-shared/docker.sock", "info"]
@@ -94,7 +110,7 @@ services:
       FORGEJO_RUNNER_TOKEN: ${FORGEJO_RUNNER_TOKEN:-}
       RUNNER_NAME: ${RUNNER_NAME:-trails-runner-1}
     volumes:
-      - runner-state:/data
+      - { <<: *ssd, source: /srv/forgejo-runners/runner-state, target: /data }
       - ./register-init.sh:/register-init.sh:ro
     entrypoint: ["/bin/sh", "/register-init.sh"]
     networks: [slot]
@@ -116,10 +132,10 @@ services:
     environment:
       DOCKER_HOST: unix:///var/run/docker-shared/docker.sock
     volumes:
-      - runner-state:/data
+      - { <<: *ssd, source: /srv/forgejo-runners/runner-state, target: /data }
       - ./config.yml:/etc/forgejo-runner/config.yml:ro
       - dind-sock:/var/run/docker-shared
-      - ws:/workspace
+      - { <<: *ssd, source: /srv/forgejo-runners/ws, target: /workspace }
     networks:
       slot:
         # Pinned: config.yml sets cache.host to this address. Job containers
@@ -140,11 +156,9 @@ networks:
         # caddy network's 172.31.0.0/16 and would have collided.
         - subnet: 10.44.240.0/24
 
+# dind-data, ws and runner-state live on the SSD (see the x-ssd binds above).
+# runner-state holds .runner (registration id + token) and the act cache. The
+# cache is disposable; .runner is NOT -- losing it forces a manual
+# re-registration.
 volumes:
-  dind-data:
   dind-sock:
-  ws:
-  # Holds /data for the runner: .runner (registration id + token) and the act
-  # cache. The cache is disposable; .runner is NOT -- losing it forces a manual
-  # re-registration. Deliberately inside the forgejo-runners_* backup exclusion.
-  runner-state:

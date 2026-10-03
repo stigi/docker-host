@@ -62,9 +62,9 @@ cache:
   # every actions/cache step in a workflow a silent no-op -- no error, just no
   # caching. Enabled 2026-09-16.
   #
-  # dir lives under /data, which is bind-mounted from ./runner-1 on the /home
-  # LV -- deliberately NOT on root. /home is 719 G at 12% used and 1% inodes,
-  # so CI cache growth cannot contribute to root's inode problem.
+  # dir lives under /data, which since 2026-10-03 is bind-mounted from
+  # /srv/forgejo-runners/runner-state on the dedicated worker SSD -- NOT on
+  # root, so CI cache growth cannot contribute to root's inode problem.
   enabled: true
   dir: /data/.cache/actcache
   # host/port are pinned rather than auto-detected. The cache server runs in
