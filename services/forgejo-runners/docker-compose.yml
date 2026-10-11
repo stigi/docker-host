@@ -60,7 +60,9 @@ x-ssd: &ssd
 
 services:
   dind:
-    image: docker:27-dind
+    # 2026-10-11: 27 -> 29 (Docker 27 EOL; image predated the Nov 2025 runc
+    # container-escape fixes). 29 matches the host daemon.
+    image: docker:29-dind
     container_name: trails-runner-dind
     privileged: true
     restart: unless-stopped
