@@ -1,8 +1,10 @@
 services:
   grampsweb: &grampsweb
-    # PINNED 2026-09-28. Gramps Web uses CalVer for images, so the tag is
+    # PINNED 2026-10-11 (v24.12.2 -> 26.10.0; newer tags drop the v prefix, Zip Slip CVE-2026-40258; redis 7.2.4 -> 7.4 for CVE-2025-49844).
+    # Pre-upgrade volume tarball: ~/backups/gramps-pre-v26.10.0-2026-10-11.tgz
+    # Gramps Web uses CalVer for images, so the tag is
     # v24.12.2 even though the webapi inside reports 2.7.0.
-    image: ghcr.io/gramps-project/grampsweb:v24.12.2
+    image: ghcr.io/gramps-project/grampsweb:26.10.0
     restart: unless-stopped
     networks:
       - internal
@@ -42,7 +44,7 @@ services:
     command: celery -A gramps_webapi.celery worker --loglevel=INFO --concurrency=2
 
   grampsweb_redis:
-    image: docker.io/library/redis:7.2.4-alpine
+    image: docker.io/library/redis:7.4-alpine
     container_name: grampsweb_redis
     restart: unless-stopped
     volumes:
