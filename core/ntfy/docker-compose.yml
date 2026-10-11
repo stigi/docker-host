@@ -1,8 +1,8 @@
 services:
   ntfy:
-    # PINNED 2026-09-29 by DIGEST: no published tag matches the build that is
-# running, so the digest is the only stable name for it.
-    image: binwiederhier/ntfy@sha256:aa10e84da624f65be107f9317dbf6e212fa812e0ebf62e74d032d0762eccc930
+    # PINNED 2026-10-11: digest-pinned 10-month-old build -> v2.29.0. Tag plus
+    # digest, so a re-pushed tag cannot swap the bytes.
+    image: binwiederhier/ntfy:v2.29.0@sha256:4c599cf0818965782f93f652bd843e92714992e84d6b88ad17713dc0951cda1f
     container_name: ntfy
     restart: unless-stopped
     environment:
