@@ -1,7 +1,7 @@
 services:
   audiobookshelf:
-    # PINNED 2026-09-28 to the running build.
-    image: ghcr.io/advplyr/audiobookshelf:2.17.7
+    # PINNED 2026-10-11: 2.17.7 -> 2.37.1 for CVE-2025-25205, CVE-2026-42883/42888 and later fixes. Pre-upgrade config copy: ~/backups/abs-config-pre-2.37.1
+    image: ghcr.io/advplyr/audiobookshelf:2.37.1
     user: 1001:1001
     restart: unless-stopped
     volumes:
