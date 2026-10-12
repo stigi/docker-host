@@ -44,7 +44,9 @@ services:
     command: celery -A gramps_webapi.celery worker --loglevel=INFO --concurrency=2
 
   grampsweb_redis:
-    image: docker.io/library/redis:7.4-alpine
+    # PINNED 2026-10-12: 7.4 -> 8.10.2, tag plus digest. Each RDB was test-loaded
+    # into 8.10.2 first (same key counts); copies in ~/backups/redis-pre-8.
+    image: docker.io/library/redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
     container_name: grampsweb_redis
     restart: unless-stopped
     volumes:

@@ -72,7 +72,10 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
 
   redis:
-    image: redis:7
+    # PINNED 2026-10-12: 7.4 -> 8.10.2, tag plus digest. Each RDB was test-loaded
+    # into 8.10.2 first (same key counts); copies in ~/backups/redis-pre-8.
+    # Debian variant, not alpine: the command below needs bash.
+    image: redis:8.10.2@sha256:2c2dff791878316e3b083188be0d578423b24813cdda5de0e80ea4f7b3e6bfd6
     user: 1001:1001
     restart: unless-stopped
     secrets:
