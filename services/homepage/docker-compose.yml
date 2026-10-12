@@ -31,6 +31,14 @@ services:
       PGID: 1001
       # Logs to stdout (and so to Loki), not into the read-only config dir.
       LOG_TARGETS: stdout
+      # Widget credentials. Homepage replaces {{HOMEPAGE_FILE_X}} in the config
+      # with the content of the file at $HOMEPAGE_FILE_X. The widget proxy runs
+      # server-side, so the tokens never reach the browser.
+      HOMEPAGE_FILE_GRAFANA_TOKEN: /run/secrets/GRAFANA_TOKEN
+      HOMEPAGE_FILE_PLAUSIBLE_API_KEY: /run/secrets/PLAUSIBLE_API_KEY
+    secrets:
+      - GRAFANA_TOKEN
+      - PLAUSIBLE_API_KEY
     volumes:
       # Read-only: every skeleton file exists, so Homepage has nothing to copy.
       - ./config:/app/config:ro
@@ -47,3 +55,10 @@ networks:
     external: true
   internal:
     internal: true
+secrets:
+  # Grafana service account `homepage`, role Viewer (2026-10-12).
+  GRAFANA_TOKEN:
+    file: ./secrets/GRAFANA_TOKEN
+  # Plausible API key `homepage`, scope stats:read:* (2026-10-12).
+  PLAUSIBLE_API_KEY:
+    file: ./secrets/PLAUSIBLE_API_KEY

@@ -41,6 +41,20 @@
         icon: plausible.png
         server: docker
         container: plausible-plausible-1
+        # No native widget: Stats API v1, today in the site's time zone.
+        widget:
+          type: customapi
+          url: http://plausible-plausible-1:8000/api/v1/stats/aggregate?site_id=ullrich.is&period=day&metrics=visitors,pageviews
+          refreshInterval: 300000
+          headers:
+            Authorization: Bearer {{HOMEPAGE_FILE_PLAUSIBLE_API_KEY}}
+          mappings:
+            - field: results.visitors.value
+              label: Visitors today
+              format: number
+            - field: results.pageviews.value
+              label: Pageviews today
+              format: number
     - ntfy:
         href: https://ntfy.ullrich.is
         icon: ntfy.png
@@ -53,6 +67,18 @@
         icon: grafana.png
         server: docker
         container: grafana-grafana-1
+        # Not the native grafana widget: it needs a server admin for
+        # /api/admin/stats. This counts firing, unsilenced Grafana alerts with
+        # a Viewer token.
+        widget:
+          type: customapi
+          url: http://grafana-grafana-1:3000/api/alertmanager/grafana/api/v2/alerts?active=true&silenced=false&inhibited=false
+          refreshInterval: 60000
+          headers:
+            Authorization: Bearer {{HOMEPAGE_FILE_GRAFANA_TOKEN}}
+          mappings:
+            - label: Firing alerts
+              format: size
     - Prometheus:
         href: https://prometheus.ullrich.is
         icon: prometheus.png
