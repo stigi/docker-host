@@ -43,7 +43,12 @@ runner:
   # If more throughput is wanted, reduce IO per job (layer caching, fewer image
   # rebuilds in the smoke test) or give dind a lower bfq weight so CI yields to
   # interactive work. Do not just add slots.
-  capacity: 2
+  #
+  # 2026-10-03: 3 again after dind-data/ws/runner-state moved to the worker
+  # SSD, which removed the IO constraint above. Kept on 2026-10-12 after a
+  # week of trial: jobs ran fine, nothing on the host suffered. The numbers
+  # above describe the HDD setup and no longer apply.
+  capacity: 3
   timeout: 1h
   shutdown_timeout: 10m
   # Injected into every JOB container (not the runner itself — the runner gets
