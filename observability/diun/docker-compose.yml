@@ -1,9 +1,11 @@
 # Moved out of the gitignored testing/ on 2026-10-12. It notified by mail,
 # which nobody read; it now pushes to ntfy's zebra topic like the host alerts.
 #
-# Diun reports a new *digest* for the tag each container runs. Images here are
-# pinned to exact versions, so it does not announce new releases -- that needs
-# per-container `diun.watch_repo` + `diun.include_tags` labels.
+# Two providers:
+# - docker: reports a new *digest* for the tag each container runs (re-pushed
+#   tags, patches inside floating tags like forgejo:16).
+# - file (watch/releases.yml): the release feed -- reports new tags. One list
+#   instead of diun.* labels on every container, so editing it restarts nothing.
 services:
   docker-socket-proxy:
     # PINNED 2026-10-11 to the running build (v0.5.0, same image as :latest).
@@ -27,6 +29,9 @@ services:
     command: ["serve"]
     volumes:
       - "./volumes/data:/data"
+      # A directory, not the file: a single-file bind mount pins the inode and
+      # misses edits that replace the file.
+      - "./watch:/etc/diun/watch:ro"
     environment:
       TZ: Europe/Paris
       LOG_LEVEL: info
@@ -38,6 +43,7 @@ services:
       DIUN_PROVIDERS_DOCKER: "true"
       DIUN_WATCH_FIRSTCHECKNOTIF: "true"
       DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT: "true"
+      DIUN_PROVIDERS_FILE_DIRECTORY: /etc/diun/watch
       # User `diun` in ntfy has write-only access to zebra and nothing else.
       DIUN_NOTIF_NTFY_ENDPOINT: http://ntfy:80
       DIUN_NOTIF_NTFY_TOPIC: zebra

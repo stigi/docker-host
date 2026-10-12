@@ -44,4 +44,9 @@ I've setup a dedicated `prometheus` network that any container can join from whi
 [Grafana](https://grafana.com) is where all of the observability comes together. Here you can add the loki and prometheu integrations, and use them to build the dashboards for whatever you are interested in.
 ## Diun
 
-[Diun](https://crazymax.dev/diun/) checks the registry every 6 hours for each running container and pushes to ntfy (topic `zebra`, user `diun`, write-only) when the image behind its tag changes. Because images are pinned to exact versions, this flags re-pushed tags, not new releases.
+[Diun](https://crazymax.dev/diun/) pushes to ntfy (topic `zebra`, user `diun`, write-only). It runs two providers every 6 hours:
+
+- **docker** -- for each running container, reports when the image behind its tag changes: re-pushed tags, and patches inside floating tags like `forgejo:16` or `postgres:18`.
+- **file** (`diun/watch/releases.yml`) -- the release feed. For each listed repository it reports a *new tag*, filtered by `include_tags` and limited to the 3 newest by semver, so backports to old release lines stay quiet. Add new services there; editing it restarts nothing.
+
+When adding many entries at once, seed first or every existing tag notifies once: run a pass with `DIUN_NOTIF_NTFY_ENDPOINT` pointed at a closed port (`docker compose run --rm -e DIUN_NOTIF_NTFY_ENDPOINT=http://127.0.0.1:9 diun serve`, stop it after `Jobs completed`).

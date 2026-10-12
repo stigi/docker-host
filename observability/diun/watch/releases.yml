@@ -1,0 +1,51 @@
+# Release feed: diun lists each repository's tags and pushes to ntfy when a NEW
+# tag appears. The docker provider separately watches the digest of the tag
+# each container runs; this file is what announces new versions.
+#
+# Per entry: include_tags filters first, sort_tags semver orders newest first,
+# max_tags keeps the top 3. So a tag only notifies if it is among the 3 newest
+# -- backports to old release lines mostly stay quiet.
+#
+# The tag in `name` does not matter for the feed; it is the version pinned in
+# the service's compose file, kept as a reminder. Floating-major images
+# (forgejo:16, postgres:18, ...) watch for the next major only; patches within
+# the major arrive as a digest change through the docker provider.
+#
+# Not watched: searxng (daily releases), clickhouse (plausible decides the
+# version), n8n sandbox images (follow n8n), digest-only exporters.
+
+# --- core
+- {name: "caddy:2.11.7", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.\d+$']}
+- {name: "authelia/authelia:4.39.28", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.\d+$']}
+- {name: "binwiederhier/ntfy:v2.29.0", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+- {name: "tecnativa/docker-socket-proxy:v0.5.0", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+
+# --- services
+- {name: "ghcr.io/mastodon/mastodon:v4.7.2", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+- {name: "codeberg.org/forgejo/forgejo:16", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+$']}
+- {name: "data.forgejo.org/forgejo/runner:13", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+$']}
+# semver sorting cannot parse "29-dind", so no max_tags here: every NN-dind tag is checked.
+- {name: "docker:29-dind", watch_repo: true, notify_on: [new], include_tags: ['^\d+-dind$']}
+- {name: "calcom/cal.com:v6.2.0", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+- {name: "ghcr.io/advplyr/audiobookshelf:2.37.1", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.\d+$']}
+- {name: "ghcr.io/gramps-project/grampsweb:26.10.0", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.\d+$']}
+- {name: "ghcr.io/dgtlmoon/changedetection.io:0.60.8", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.\d+$']}
+- {name: "ghcr.io/browserless/chrome:v2.57.0", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+- {name: "ghcr.io/imputnet/cobalt:11.7.1", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.\d+$']}
+- {name: "ghcr.io/plausible/community-edition:v3.2.1", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+# Minor releases only: n8n ships patches several times a week. docker.io, not
+# docker.n8n.io, which times out and rate-limits.
+- {name: "docker.io/n8nio/n8n:2.41.3", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.0$']}
+- {name: "pawelmalak/flame:2.4.0", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.\d+$']}
+- {name: "postgres:18", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+$']}
+- {name: "redis:7", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+$']}
+
+# --- observability
+- {name: "grafana/grafana:13.2.2", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.\d+$']}
+- {name: "grafana/loki:3.1.2", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.\d+$']}
+- {name: "grafana/alloy:v1.20.1", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+- {name: "prom/prometheus:v2.53.4", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+- {name: "quay.io/prometheus/node-exporter:v1.12.1", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+- {name: "ghcr.io/google/cadvisor:v0.60.6", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+- {name: "githubexporter/github-exporter:v2.3.1", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^v\d+\.\d+\.\d+$']}
+- {name: "crazymax/diun:4.33.0", watch_repo: true, sort_tags: semver, max_tags: 3, notify_on: [new], include_tags: ['^\d+\.\d+\.\d+$']}
