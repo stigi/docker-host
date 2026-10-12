@@ -6,11 +6,22 @@
         icon: mastodon.png
         server: docker
         container: mastodon-web-1
+        # Public instance API, no token. Through Caddy, because Mastodon only
+        # answers requests for its own host name.
+        widget:
+          type: mastodon
+          url: https://social.ullrich.is
     - Forgejo:
         href: https://git.ullrich.is
         icon: forgejo.png
         server: docker
         container: forgejo-forgejo-1
+    - Forgejo runner:
+        href: https://git.ullrich.is/-/admin/actions/runners
+        icon: forgejo.png
+        description: CI for trails-cool, capacity 3
+        server: docker
+        container: trails-runner
     - Cal:
         href: https://cal.ullrich.is
         icon: cal-com.png
