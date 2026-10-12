@@ -1,0 +1,62 @@
+# Moved out of the gitignored testing/ on 2026-10-12. It notified by mail,
+# which nobody read; it now pushes to ntfy's zebra topic like the host alerts.
+#
+# Diun reports a new *digest* for the tag each container runs. Images here are
+# pinned to exact versions, so it does not announce new releases -- that needs
+# per-container `diun.watch_repo` + `diun.include_tags` labels.
+services:
+  docker-socket-proxy:
+    # PINNED 2026-10-11 to the running build (v0.5.0, same image as :latest).
+    image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    restart: unless-stopped
+    networks:
+      - internal
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    environment:
+      CONTAINERS: 1
+      EVENTS: 1
+      IMAGES: 1
+
+  diun:
+    # PINNED 2026-10-11 to the running build.
+    image: crazymax/diun:4.33.0@sha256:e324b793eb32dfb7f74d3a39421ebf090141caaadee69b8f78da63112408ee25
+    restart: unless-stopped
+    hostname: diun
+    container_name: diun
+    command: ["serve"]
+    volumes:
+      - "./volumes/data:/data"
+    environment:
+      TZ: Europe/Paris
+      LOG_LEVEL: info
+      LOG_JSON: "false"
+      DIUN_PROVIDERS_DOCKER_ENDPOINT: tcp://docker-socket-proxy:2375
+      DIUN_WATCH_WORKERS: 20
+      DIUN_WATCH_SCHEDULE: 0 */6 * * *
+      DIUN_WATCH_JITTER: 30s
+      DIUN_PROVIDERS_DOCKER: "true"
+      DIUN_WATCH_FIRSTCHECKNOTIF: "true"
+      DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT: "true"
+      # User `diun` in ntfy has write-only access to zebra and nothing else.
+      DIUN_NOTIF_NTFY_ENDPOINT: http://ntfy:80
+      DIUN_NOTIF_NTFY_TOPIC: zebra
+      DIUN_NOTIF_NTFY_TOKENFILE: /run/secrets/DIUN_NOTIF_NTFY_TOKEN
+      DIUN_NOTIF_NTFY_TAGS: whale
+    secrets:
+      - DIUN_NOTIF_NTFY_TOKEN
+    networks:
+      - internal
+      - egress
+      - ntfy
+
+networks:
+  internal:
+    internal: true
+  egress: {}
+  ntfy:
+    external: true
+
+secrets:
+  DIUN_NOTIF_NTFY_TOKEN:
+    file: ./secrets/DIUN_NOTIF_NTFY_TOKEN

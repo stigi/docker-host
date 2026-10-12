@@ -42,3 +42,6 @@ I've setup a dedicated `prometheus` network that any container can join from whi
 ## Grafana
 
 [Grafana](https://grafana.com) is where all of the observability comes together. Here you can add the loki and prometheu integrations, and use them to build the dashboards for whatever you are interested in.
+## Diun
+
+[Diun](https://crazymax.dev/diun/) checks the registry every 6 hours for each running container and pushes to ntfy (topic `zebra`, user `diun`, write-only) when the image behind its tag changes. Because images are pinned to exact versions, this flags re-pushed tags, not new releases.
