@@ -23,7 +23,9 @@ services:
     # The one real change for this instance is task runners on by default: the
     # Code node now executes isolated. Its code is plain $("Webhook").first()
     # syntax, and the webhook returning 200 after the upgrade exercises it.
-    image: docker.n8n.io/n8nio/n8n:2.41.3
+    # PINNED 2026-10-12: 2.41.3 -> 2.43.4, tag plus digest. From docker.io: same
+    # images, but docker.n8n.io kept timing out and rate-limiting (429).
+    image: docker.io/n8nio/n8n:2.43.4@sha256:c34ee9107a42b837e25cec0c8a927ab90a45b776aa2ccbf15e5b9cda466fad2c
     user: 1000:1001
     restart: always
     networks:
