@@ -6,6 +6,11 @@
         icon: mastodon.png
         server: docker
         container: mastodon-web-1
+    - Forgejo:
+        href: https://git.ullrich.is
+        icon: forgejo.png
+        server: docker
+        container: forgejo-forgejo-1
     - Cal:
         href: https://cal.ullrich.is
         icon: cal-com.png
