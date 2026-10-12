@@ -1,11 +1,11 @@
 services:
   prometheus:
-    # PINNED. `:latest` is now Prometheus 3.x, a MAJOR upgrade (flag removals,
-    # PromQL and UI changes). On 2026-09-25 a `docker compose pull` here fetched
-    # it, so a plain `up -d` would have performed that upgrade silently. Pinned
-    # to the version actually running. Bump deliberately, after reading the v3
-    # migration notes -- not by accident.
-    image: prom/prometheus:v2.53.4
+    # PINNED 2026-10-12: v2.53.4 -> v3.15.0, tag plus digest. Checked before
+    # the bump: no custom flags; every target sends a valid Content-Type (v3
+    # rejects scrapes without one); no le=/quantile= matchers in provisioning.
+    # Rollback: the v3 TSDB is readable by v2.55+ only, so roll back to
+    # v2.55.1, NOT v2.53.4.
+    image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
     restart: unless-stopped
     extra_hosts:
       # Needed to scrape nftables-exporter, which runs on host network
