@@ -1,10 +1,11 @@
 services:
   loki:
-    # PINNED. Loki and promtail must move together, and `:latest` is now 3.7.x
-    # against the 3.1.2 running here. The retention config added 2026-09-24
-    # (compactor + delete_request_store) is version-sensitive, so upgrade
-    # deliberately and re-verify retention afterwards.
-    image: grafana/loki:3.1.2
+    # PINNED 2026-10-12: 3.1.2 -> 3.7.8. Tag plus digest. The 3.2-3.7 upgrade
+    # notes touch nothing configured here (blooms, S3 SDK, Helm). The retention
+    # config added 2026-09-24 (compactor + delete_request_store) is
+    # version-sensitive: re-verify retention after any bump. Since 3.5.8 the
+    # image has no shell, so `docker exec loki sh` fails; use port 3100.
+    image: grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
     restart: always
     networks:
       - internal
