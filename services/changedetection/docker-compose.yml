@@ -1,8 +1,7 @@
 services:
   changedetection:
-    # PINNED 2026-10-11: 0.52.6 -> 0.60.8. Pre-upgrade datastore copy:
-    # ~/backups/changedetection-data-pre-0.60.8
-    image: ghcr.io/dgtlmoon/changedetection.io:0.60.8
+    # PINNED 2026-10-12: 0.60.8 -> 0.60.9, tag plus digest.
+    image: ghcr.io/dgtlmoon/changedetection.io:0.60.9@sha256:04eaae7915bad711160cb15abe160f6d3fabe98bbbd658509d4b7a654000fb2d
     container_name: changedetection
     restart: unless-stopped
     depends_on:
