@@ -8,7 +8,7 @@ services:
     # Not `:latest` on purpose -- alert rules, dashboards and the ntfy contact
     # point's bearer token live in the grafana_storage volume, so an accidental
     # major bump is a one-way change to state that is not in git.
-    image: grafana/grafana:13.2.2
+    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
     restart: always
     volumes:
       - ./grafana.ini:/etc/grafana/grafana.ini
