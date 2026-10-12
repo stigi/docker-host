@@ -1,0 +1,49 @@
+# Dashboard at home.ullrich.is, replacing flame (2026-10-12).
+#
+# Homepage has no login of its own; Authelia guards it through the `secure`
+# snippet, like flame. Services come from two places:
+# - config/services.yaml: seeded from flame's labels, so nothing had to restart.
+# - homepage.* labels on any container (homepage.group, .name, .icon, .href,
+#   .description). Add them as services get touched; labels only take effect
+#   when a container is recreated.
+services:
+  docker-socket-proxy:
+    # PINNED 2026-10-12, same build as the other socket proxies.
+    image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    restart: unless-stopped
+    networks:
+      - internal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # Container list/inspect/stats: enough for label discovery and status.
+      CONTAINERS: 1
+
+  homepage:
+    # PINNED 2026-10-12, tag plus digest.
+    image: ghcr.io/gethomepage/homepage:v2.5.0@sha256:57c4a0531937889c0b968b120fe9c2560bbe036b5c9e18c49a9e2479de9975d1
+    container_name: homepage
+    restart: unless-stopped
+    environment:
+      # Required since v1: requests for any other Host are rejected.
+      HOMEPAGE_ALLOWED_HOSTS: home.ullrich.is
+      PUID: 1001
+      PGID: 1001
+      # Logs to stdout (and so to Loki), not into the read-only config dir.
+      LOG_TARGETS: stdout
+    volumes:
+      # Read-only: every skeleton file exists, so Homepage has nothing to copy.
+      - ./config:/app/config:ro
+    networks:
+      - caddy
+      - internal
+    labels:
+      caddy: home.ullrich.is
+      caddy.reverse_proxy: "{{upstreams 3000}}"
+      caddy.import: secure *
+
+networks:
+  caddy:
+    external: true
+  internal:
+    internal: true

@@ -1,0 +1,65 @@
+# Seeded 2026-10-12 from the flame.* labels. `server`/`container` give each
+# tile its live container status. Prefer homepage.* labels for new services.
+- Services:
+    - Mastodon:
+        href: https://social.ullrich.is
+        icon: mastodon.png
+        server: docker
+        container: mastodon-web-1
+    - Cal:
+        href: https://cal.ullrich.is
+        icon: cal-com.png
+        server: docker
+        container: cal-calcom-1
+    - Audiobookshelf:
+        href: https://audioshelf.ullrich.is
+        icon: audiobookshelf.png
+        server: docker
+        container: audiobookshelf-audiobookshelf-1
+    - Gramps:
+        href: https://gramps.ullrich.is
+        icon: gramps-web.png
+        server: docker
+        container: gramps-grampsweb-1
+    - n8n:
+        href: https://n8n.ullrich.is
+        icon: n8n.png
+        server: docker
+        container: n8n-n8n-1
+    - changedetection:
+        href: https://changedetection.ullrich.is
+        icon: changedetection.png
+        server: docker
+        container: changedetection
+    - cobalt:
+        href: https://cobalt.ullrich.is
+        icon: cobalt.png
+        server: docker
+        container: cobalt-cobalt-api-1
+    - Plausible:
+        href: https://plausible.ullrich.is
+        icon: plausible.png
+        server: docker
+        container: plausible-plausible-1
+    - ntfy:
+        href: https://ntfy.ullrich.is
+        icon: ntfy.png
+        server: docker
+        container: ntfy
+
+- Observability:
+    - Grafana:
+        href: https://grafana.ullrich.is
+        icon: grafana.png
+        server: docker
+        container: grafana-grafana-1
+    - Prometheus:
+        href: https://prometheus.ullrich.is
+        icon: prometheus.png
+        server: docker
+        container: prometheus-prometheus-1
+    - cAdvisor:
+        href: https://cadvisor.ullrich.is
+        icon: cadvisor.png
+        server: docker
+        container: cadvisor

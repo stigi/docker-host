@@ -1,0 +1,13 @@
+title: ullrich.is
+theme: dark
+color: slate
+headerStyle: clean
+statusStyle: dot
+hideVersion: true
+layout:
+  Services:
+    style: row
+    columns: 3
+  Observability:
+    style: row
+    columns: 3
