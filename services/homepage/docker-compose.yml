@@ -34,9 +34,11 @@ services:
       # Widget credentials. Homepage replaces {{HOMEPAGE_FILE_X}} in the config
       # with the content of the file at $HOMEPAGE_FILE_X. The widget proxy runs
       # server-side, so the tokens never reach the browser.
+      HOMEPAGE_FILE_FORGEJO_TOKEN: /run/secrets/FORGEJO_TOKEN
       HOMEPAGE_FILE_GRAFANA_TOKEN: /run/secrets/GRAFANA_TOKEN
       HOMEPAGE_FILE_PLAUSIBLE_API_KEY: /run/secrets/PLAUSIBLE_API_KEY
     secrets:
+      - FORGEJO_TOKEN
       - GRAFANA_TOKEN
       - PLAUSIBLE_API_KEY
     volumes:
@@ -56,6 +58,10 @@ networks:
   internal:
     internal: true
 secrets:
+  # Forgejo token `homepage` of user ullrich (2026-10-12), read-only scopes:
+  # notification, repository, issue, admin (admin for the runner list).
+  FORGEJO_TOKEN:
+    file: ./secrets/FORGEJO_TOKEN
   # Grafana service account `homepage`, role Viewer (2026-10-12).
   GRAFANA_TOKEN:
     file: ./secrets/GRAFANA_TOKEN

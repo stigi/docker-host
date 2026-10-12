@@ -16,12 +16,29 @@
         icon: forgejo.png
         server: docker
         container: forgejo-forgejo-1
+        # The gitea widget works with Forgejo. It sends the token as a query
+        # parameter; only Homepage's server-side proxy sees it.
+        widget:
+          type: gitea
+          url: http://forgejo-forgejo-1:3000
+          key: "{{HOMEPAGE_FILE_FORGEJO_TOKEN}}"
     - Forgejo runner:
         href: https://git.ullrich.is/-/admin/actions/runners
         icon: forgejo.png
         description: CI for trails-cool, capacity 3
         server: docker
         container: trails-runner
+        # Every registered runner with its state: idle, active or offline.
+        widget:
+          type: customapi
+          url: http://forgejo-forgejo-1:3000/api/v1/admin/actions/runners
+          refreshInterval: 60000
+          headers:
+            Authorization: token {{HOMEPAGE_FILE_FORGEJO_TOKEN}}
+          display: dynamic-list
+          mappings:
+            name: name
+            label: status
     - Cal:
         href: https://cal.ullrich.is
         icon: cal-com.png
