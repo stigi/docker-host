@@ -14,8 +14,9 @@ services:
       IMAGES: 1
 
   cadvisor:
-    # PINNED 2026-09-29 to the running build.
-    image: gcr.io/cadvisor/cadvisor:v0.55.1
+    # PINNED 2026-10-12: gcr.io/cadvisor stopped at v0.55.1; releases moved to
+    # ghcr.io/google. Tag plus digest.
+    image: ghcr.io/google/cadvisor:v0.60.6@sha256:b8e7d1093144fd088f425ff003d75a4aa405de075db78dae3bc563730b1bd07a
     container_name: cadvisor
     restart: unless-stopped
     command:
