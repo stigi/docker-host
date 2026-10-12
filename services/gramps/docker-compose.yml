@@ -4,7 +4,7 @@ services:
     # Pre-upgrade volume tarball: ~/backups/gramps-pre-v26.10.0-2026-10-11.tgz
     # Gramps Web uses CalVer for images, so the tag is
     # v24.12.2 even though the webapi inside reports 2.7.0.
-    image: ghcr.io/gramps-project/grampsweb:26.10.0
+    image: ghcr.io/gramps-project/grampsweb:26.10.1@sha256:4348222c2ab2f5c53f15e7e170bd8b17db1c1691326e0e72b0d0d6df87724b94
     restart: unless-stopped
     networks:
       - internal
