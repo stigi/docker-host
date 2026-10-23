@@ -1,0 +1,8 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+# 13.2.3 (pinned below) and 13.2.4 (built 2026-10-12) both predate the fix.
+# Upgrade the Alpine CA store to 20261020-r0 (drops emSign ECC Root CA - G3 /
+# AAA Certificate Services). Grafana is Go and reads the system store.
+FROM grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+USER root
+RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle
+USER 472

@@ -2,11 +2,19 @@ services:
   docker-socket-proxy:
     # PINNED 2026-09-29 to the running build.
     image: tecnativa/docker-socket-proxy:v0.5.0
+    # No outgoing TLS (HAProxy in front of the docker socket, internal network
+    # only); the CA mount is defence in depth, same as the other socket proxies.
     restart: unless-stopped
     networks:
       - internal
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+      # Patched shared bundle (Alpine 20261020-r0); see core/ca-bundle/README.md.
+      - ../../core/ca-bundle/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+      # /etc/ssl/certs also holds hash links (14bc7599.0 -> mozilla/emSign_ECC_Root_CA_-_G3.crt)
+      # that Go/OpenSSL CApath readers would still load; blank the source file.
+      - /dev/null:/usr/share/ca-certificates/mozilla/emSign_ECC_Root_CA_-_G3.crt:ro
     environment:
       CONTAINERS: 1
       EVENTS: 1
@@ -16,7 +24,12 @@ services:
   cadvisor:
     # PINNED 2026-10-12: gcr.io/cadvisor stopped at v0.55.1; releases moved to
     # ghcr.io/google. Tag plus digest.
-    image: ghcr.io/google/cadvisor:v0.60.6@sha256:b8e7d1093144fd088f425ff003d75a4aa405de075db78dae3bc563730b1bd07a
+    # image: ghcr.io/google/cadvisor:v0.60.6@sha256:b8e7d1093144fd088f425ff003d75a4aa405de075db78dae3bc563730b1bd07a
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+    # Dockerfile.cafix = the v0.60.6 digest above + Alpine ca-certificates-bundle 20261020-r0.
+    build: {context: ., dockerfile: Dockerfile.cafix}
+    image: cadvisor-cadvisor:cafix
+    pull_policy: build
     container_name: cadvisor
     restart: unless-stopped
     command:

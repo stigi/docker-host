@@ -1,7 +1,12 @@
 services:
   audiobookshelf:
     # PINNED 2026-10-11: 2.17.7 -> 2.37.1 for CVE-2025-25205, CVE-2026-42883/42888 and later fixes. Pre-upgrade config copy: ~/backups/abs-config-pre-2.37.1
-    image: ghcr.io/advplyr/audiobookshelf:2.37.1
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store
+    # (Dockerfile.cafix: 2.37.1 + Alpine ca-certificates 20261020 + NODE_OPTIONS=--use-openssl-ca).
+    # To drop: restore `image: ghcr.io/advplyr/audiobookshelf:<fixed tag>@sha256:...` and remove build/pull_policy.
+    build: {context: ., dockerfile: Dockerfile.cafix}
+    image: audiobookshelf-audiobookshelf:cafix
+    pull_policy: build
     user: 1001:1001
     restart: unless-stopped
     volumes:

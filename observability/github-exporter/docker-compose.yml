@@ -6,6 +6,11 @@ services:
     secrets: [GITHUB_TOKEN]
     volumes:
       - ./with-expanded-env.sh:/with-expanded-env.sh
+      # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+      # v2.3.1 is the newest release (built 2026-06-09) and has no shell or
+      # package manager; SSL_CERT_FILE points at this path. Patched shared
+      # bundle (Alpine 20261020-r0), see core/ca-bundle/README.md.
+      - ../../core/ca-bundle/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
     environment:
       - GITHUB_TOKEN_FILE=/run/secrets/GITHUB_TOKEN
       - ORGS=magicbell

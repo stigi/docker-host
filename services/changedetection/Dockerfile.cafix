@@ -1,0 +1,7 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store
+# (Debian ca-certificates >= 20250419~deb12u2 and certifi >= 2026.10.19).
+FROM ghcr.io/dgtlmoon/changedetection.io:0.60.9@sha256:04eaae7915bad711160cb15abe160f6d3fabe98bbbd658509d4b7a654000fb2d
+USER root
+RUN apt-get update && apt-get install -y --only-upgrade ca-certificates && update-ca-certificates && rm -rf /var/lib/apt/lists/*
+# The app imports certifi from /usr/local (PYTHONPATH=/usr/local), not site-packages.
+RUN rm -rf /usr/local/certifi /usr/local/certifi-*.dist-info && pip install --no-cache-dir --target /usr/local 'certifi>=2026.10.19'

@@ -1,0 +1,8 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+# v2.29.0 (pinned below) and the newest v2.32.0 (built 2026-10-18) both predate
+# the fix. Upgrade the Alpine CA bundle to 20261020-r0 (drops emSign ECC Root
+# CA - G3 / AAA Certificate Services). ntfy is Go and reads the system store.
+FROM binwiederhier/ntfy:v2.29.0@sha256:4c599cf0818965782f93f652bd843e92714992e84d6b88ad17713dc0951cda1f
+USER root
+RUN apk upgrade --no-cache ca-certificates-bundle
+# upstream image has no USER (runs as root)

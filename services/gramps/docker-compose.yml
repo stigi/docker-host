@@ -4,7 +4,17 @@ services:
     # Pre-upgrade volume tarball: ~/backups/gramps-pre-v26.10.0-2026-10-11.tgz
     # Gramps Web uses CalVer for images, so the tag is
     # v24.12.2 even though the webapi inside reports 2.7.0.
-    image: ghcr.io/gramps-project/grampsweb:26.10.1@sha256:4348222c2ab2f5c53f15e7e170bd8b17db1c1691326e0e72b0d0d6df87724b94
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store
+    # Local build of 26.10.1 (pinned digest in Dockerfile.cafix) + upgraded
+    # ca-certificates + certifi. 26.10.2 is NOT fixed (built 2026-10-20 21:42,
+    # still old CA store/certifi) and adds two user-DB alembic migrations.
+    # To remove: delete build/pull_policy, restore
+    # image: ghcr.io/gramps-project/grampsweb:<fixed tag>@sha256:<digest>
+    build:
+      context: .
+      dockerfile: Dockerfile.cafix
+    image: gramps-grampsweb:cafix
+    pull_policy: build
     restart: unless-stopped
     networks:
       - internal
@@ -46,7 +56,9 @@ services:
   grampsweb_redis:
     # PINNED 2026-10-12: 7.4 -> 8.10.2, tag plus digest. Each RDB was test-loaded
     # into 8.10.2 first (same key counts); copies in ~/backups/redis-pre-8.
-    image: docker.io/library/redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+    # 2026-10-22: same tag re-pushed 2026-10-21 with Alpine ca-certificates-bundle
+    # 20261020-r0 (eMudhra CA compromise); digest bumped, redis version unchanged.
+    image: docker.io/library/redis:8.10.2-alpine@sha256:615b4cedaff0c1437a1548acae4222572df8c021eeb7382d64cb8b5e3a13ac7a
     container_name: grampsweb_redis
     restart: unless-stopped
     volumes:

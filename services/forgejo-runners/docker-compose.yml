@@ -62,7 +62,10 @@ services:
   dind:
     # 2026-10-11: 27 -> 29 (Docker 27 EOL; image predated the Nov 2025 runc
     # container-escape fixes). 29 matches the host daemon.
-    image: docker:29-dind
+    # 2026-10-22: pinned to 29.9.2 (rebuilt 2026-10-21) -- ships Alpine
+    # ca-certificates 20261020-r0 (eMudhra CA removal). This daemon's system
+    # store is what verifies every registry pull CI jobs make.
+    image: docker:29.9.2-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977
     container_name: trails-runner-dind
     privileged: true
     restart: unless-stopped
@@ -99,7 +102,13 @@ services:
   # in Forgejo. Only if .runner is absent does it register — which is what
   # makes this stack reproducible from nothing.
   runner-register:
-    image: data.forgejo.org/forgejo/runner:13
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+    # Dockerfile.cafix = runner:13.2.0 pinned + ca-certificates-bundle 20261020-r0.
+    # Replace with `image: data.forgejo.org/forgejo/runner:13.x@sha256:...` once a
+    # runner image built after 2026-10-20 exists.
+    build: {context: ., dockerfile: Dockerfile.cafix}
+    image: forgejo-runners-runner:cafix
+    pull_policy: build
     container_name: trails-runner-register
     restart: "no"
     user: "1002:1002"
@@ -118,7 +127,13 @@ services:
     networks: [slot]
 
   runner:
-    image: data.forgejo.org/forgejo/runner:13
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+    # Dockerfile.cafix = runner:13.2.0 pinned + ca-certificates-bundle 20261020-r0.
+    # Replace with `image: data.forgejo.org/forgejo/runner:13.x@sha256:...` once a
+    # runner image built after 2026-10-20 exists.
+    build: {context: ., dockerfile: Dockerfile.cafix}
+    image: forgejo-runners-runner:cafix
+    pull_policy: build
     container_name: trails-runner
     restart: unless-stopped
     user: "1002:1002"

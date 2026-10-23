@@ -1,6 +1,13 @@
 services:
   forgejo:
-    image: codeberg.org/forgejo/forgejo:16
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+    # Was the floating `codeberg.org/forgejo/forgejo:16` (running 16.0.5, built
+    # 2026-09-17). Dockerfile.cafix = 16.0.6 pinned by digest + Alpine
+    # ca-certificates 20261020-r0. When a 16.x built after 2026-10-20 ships,
+    # replace this block with `image: codeberg.org/forgejo/forgejo:16.0.N@sha256:...`.
+    build: {context: ., dockerfile: Dockerfile.cafix}
+    image: forgejo-forgejo:cafix
+    pull_policy: build
     restart: unless-stopped
     # Stable hostname. Docker otherwise sets the hostname to the container ID,
     # which changes on every recreate — and GnuPG keys its lock files on the

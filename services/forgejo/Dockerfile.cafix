@@ -1,0 +1,8 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+# No Forgejo 16.x (or 17) image built after 2026-10-20 exists yet; 16.0.6 is the
+# newest 16.x patch (security release, 2026-10-12). Upgrade its Alpine CA store
+# to 20261020-r0 (drops emSign ECC Root CA - G3 / AAA Certificate Services).
+FROM codeberg.org/forgejo/forgejo:16.0.6@sha256:e2c34a699543ca8a00217ee9ab2bea5feedc98bd6d0ea95ec287d3b7ae1355c6
+USER root
+RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle
+# upstream image has no USER (runs as root; s6/entrypoint drops to USER_UID)

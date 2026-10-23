@@ -5,7 +5,10 @@ services:
     # config added 2026-09-24 (compactor + delete_request_store) is
     # version-sensitive: re-verify retention after any bump. Since 3.5.8 the
     # image has no shell, so `docker exec loki sh` fails; use port 3100.
-    image: grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
+    # 2026-10-22: 3.7.8 -> 3.7.9 (built 2026-10-20 21:46, ships a CA store without
+    # emSign ECC Root CA - G3 / AAA Certificate Services; eMudhra compromise).
+    # Patch release: dep bumps, Go 1.26.10, WAL append fix; no config changes.
+    image: grafana/loki:3.7.9@sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28
     restart: always
     networks:
       - internal
@@ -25,7 +28,14 @@ services:
     # Replaces promtail, which Grafana has moved into maintenance in favour of
     # Alloy. config.alloy was produced by `alloy convert --source-format=promtail`
     # from the previous promtail-config.yaml rather than hand-written.
-    image: grafana/alloy:v1.20.1
+    # image: grafana/alloy:v1.20.1
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+    # Dockerfile.alloy-cafix = v1.20.1 by digest + Ubuntu ca-certificates
+    # 20260816ubuntu0.24.04.1. Fixed upstream in v1.21.1 (see the Dockerfile for
+    # the 1.21 breaking changes, none of which config.alloy uses).
+    build: {context: ., dockerfile: Dockerfile.alloy-cafix}
+    image: loki-alloy:cafix
+    pull_policy: build
     restart: unless-stopped
     networks:
       - internal
@@ -54,6 +64,8 @@ services:
   # promtail notice containers starting and stopping without polling hard.
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:v0.5.0
+    # No outgoing TLS (HAProxy in front of the docker socket, internal network
+    # only); the CA mount is defence in depth, same as the other socket proxies.
     restart: unless-stopped
     environment:
       CONTAINERS: 1
@@ -68,6 +80,12 @@ services:
       INFO: 1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+      # Patched shared bundle (Alpine 20261020-r0); see core/ca-bundle/README.md.
+      - ../../core/ca-bundle/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+      # /etc/ssl/certs also holds hash links (14bc7599.0 -> mozilla/emSign_ECC_Root_CA_-_G3.crt)
+      # that Go/OpenSSL CApath readers would still load; blank the source file.
+      - /dev/null:/usr/share/ca-certificates/mozilla/emSign_ECC_Root_CA_-_G3.crt:ro
     networks:
       - internal
 

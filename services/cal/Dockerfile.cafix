@@ -1,0 +1,12 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+# calcom/cal.com:v6.2.0 (built 2026-03-01, Debian bookworm, Node 20.20.0) ships
+# ca-certificates 20230311+deb12u1, which still trusts "emSign ECC Root CA - G3".
+# Patched: 20250419~deb12u2. Node 20's *bundled* store is never fixed, so the
+# compose file also sets NODE_OPTIONS=--use-openssl-ca to make Node use this
+# (patched) system store instead.
+FROM calcom/cal.com:v6.2.0@sha256:ace3bb1219fb7306585ab9f4d94d41af7ee064c343db0498173436bbe857bd49
+USER root
+RUN apt-get update \
+ && apt-get install -y --only-upgrade ca-certificates \
+ && update-ca-certificates --fresh \
+ && rm -rf /var/lib/apt/lists/*

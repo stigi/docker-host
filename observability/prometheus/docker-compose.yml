@@ -5,7 +5,9 @@ services:
     # rejects scrapes without one); no le=/quantile= matchers in provisioning.
     # Rollback: the v3 TSDB is readable by v2.55+ only, so roll back to
     # v2.55.1, NOT v2.53.4.
-    image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+    # 2026-10-22: v3.15.0 -> v3.15.1, a security patch release whose images
+    # distrust emSign ECC Root CA - G3 / AAA (eMudhra compromise); Go 1.27.3.
+    image: prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
     restart: unless-stopped
     extra_hosts:
       # Needed to scrape nftables-exporter, which runs on host network
@@ -36,6 +38,10 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
       - /:/host:ro,rslave
+      # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+      # busybox image, no package manager; v1.12.1 is the newest release. No
+      # outgoing TLS expected; defence in depth. See core/ca-bundle/README.md.
+      - ../../core/ca-bundle/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
     networks:
       - internal
     command: 
@@ -61,6 +67,9 @@ services:
   nftables-exporter:
     # PINNED 2026-09-29 by DIGEST: no published tag matches the build that is
 # running, so the digest is the only stable name for it.
+    # eMudhra CA (2026-10-22): left as is. The image has no CA store at all
+    # (no /etc/ssl/certs, no ca-certificates package) and the binary embeds
+    # none, so it cannot trust any TLS server; it only reads nftables via netlink.
     image: cacack/nftables-exporter@sha256:6d657a9c2ed8d5b24053d8d791ca9d5b0ae375d9e8e6938925d919615c7079fc
     restart: unless-stopped
     network_mode: host

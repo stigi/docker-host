@@ -8,7 +8,13 @@ services:
     # Not `:latest` on purpose -- alert rules, dashboards and the ntfy contact
     # point's bearer token live in the grafana_storage volume, so an accidental
     # major bump is a one-way change to state that is not in git.
-    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+    # image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+    # Dockerfile.cafix = the 13.2.3 digest above + Alpine ca-certificates 20261020-r0
+    # (13.2.4, built 2026-10-12, is not fixed). Same Grafana version, no migration.
+    build: {context: ., dockerfile: Dockerfile.cafix}
+    image: grafana-grafana:cafix
+    pull_policy: build
     restart: always
     volumes:
       - ./grafana.ini:/etc/grafana/grafana.ini

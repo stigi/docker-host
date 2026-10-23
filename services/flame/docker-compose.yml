@@ -7,6 +7,12 @@ services:
       - internal
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+      # Patched shared bundle (Alpine 20261020-r0); see core/ca-bundle/README.md.
+      - ../../core/ca-bundle/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+      # /etc/ssl/certs also holds hash links (14bc7599.0 -> mozilla/emSign_ECC_Root_CA_-_G3.crt)
+      # that Go/OpenSSL CApath readers would still load; blank the source file.
+      - /dev/null:/usr/share/ca-certificates/mozilla/emSign_ECC_Root_CA_-_G3.crt:ro
     environment:
       CONTAINERS: 1
       EVENTS: 1
@@ -15,7 +21,14 @@ services:
   flame:
     # PINNED 2026-09-29 to the running build. The app's package.json reports 0.1.0, which is not
     # the image version; the published tag for this build is 2.4.0.
-    image: pawelmalak/flame:2.4.0
+    # Base: pawelmalak/flame:2.4.0@sha256:7a5edc859235486a82871eb624f03048e44f603cba42ea3f60dc7cfe60ca6b3f
+    # (same build as the previously running image; locally it was only tagged :latest).
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store
+    # Node 20 is EOL and never gets a fixed bundled store, so NODE_OPTIONS=--use-openssl-ca
+    # (Dockerfile.cafix) is needed for as long as flame runs Node 20.
+    build: {context: ., dockerfile: Dockerfile.cafix}
+    image: flame-flame:cafix
+    pull_policy: build
     container_name: flame
     volumes:
       - ./volumes:/app/data

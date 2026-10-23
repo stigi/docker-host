@@ -1,0 +1,8 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store
+# (an audiobookshelf image built after 2026-10-20 with Alpine ca-certificates-bundle
+# >= 20261020-r0 and Node >= 24.22.1). Image runs as root; compose sets user 1001.
+FROM ghcr.io/advplyr/audiobookshelf:2.37.1@sha256:581d68b2a6fc7ebf58d81c878a9f387cbbc0d88ac9d37b298b9cee10168af85b
+RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle
+# Node 24.21.0's bundled CA store still trusts emSign ECC Root CA - G3.
+# --use-openssl-ca replaces it with the patched system store (--use-system-ca only adds to it).
+ENV NODE_OPTIONS=--use-openssl-ca

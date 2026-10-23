@@ -2,11 +2,19 @@ services:
   docker-socket-proxy:
     # PINNED 2026-09-29 to the running build.
     image: tecnativa/docker-socket-proxy:v0.5.0
+    # No outgoing TLS (HAProxy in front of the docker socket, internal network
+    # only); the CA mount is defence in depth, same as the other socket proxies.
     restart: unless-stopped
     networks:
       - internal
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+      # Patched shared bundle (Alpine 20261020-r0); see core/ca-bundle/README.md.
+      - ../ca-bundle/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+      # /etc/ssl/certs also holds hash links (14bc7599.0 -> mozilla/emSign_ECC_Root_CA_-_G3.crt)
+      # that Go/OpenSSL CApath readers would still load; blank the source file.
+      - /dev/null:/usr/share/ca-certificates/mozilla/emSign_ECC_Root_CA_-_G3.crt:ro
     environment:
       CONTAINERS: 1
       EVENTS: 1

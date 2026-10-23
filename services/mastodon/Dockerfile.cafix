@@ -1,0 +1,10 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store
+# (dpage/pgadmin4 build newer than 2026-10-20 with ca-certificates >= 20261020-r0
+#  and certifi >= 2026.10.19 in /venv).
+# pgadmin only: the other mastodon images are fixed upstream (re-pushed tags).
+FROM dpage/pgadmin4:9.11@sha256:50700ac17936d0227f9e3e4bb086a91efb67064debc4b4737c35545bf1564088
+USER root
+RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle \
+ && /venv/bin/python3 -m pip install --no-cache-dir -U 'certifi>=2026.10.19'
+# original image USER
+USER 5050

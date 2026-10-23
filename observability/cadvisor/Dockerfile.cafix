@@ -1,0 +1,7 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+# v0.60.6 is the newest cadvisor and was built 2026-09-18. Upgrade the Alpine
+# CA bundle to 20261020-r0 (drops emSign ECC Root CA - G3 / AAA Certificate Services).
+FROM ghcr.io/google/cadvisor:v0.60.6@sha256:b8e7d1093144fd088f425ff003d75a4aa405de075db78dae3bc563730b1bd07a
+USER root
+RUN apk upgrade --no-cache ca-certificates-bundle
+# upstream image has no USER (runs as root)

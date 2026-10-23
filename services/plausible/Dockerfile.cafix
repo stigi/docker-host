@@ -1,0 +1,27 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+# ghcr.io/plausible/community-edition:v3.2.1 (built 2026-05-15, Alpine 3.22) ships
+# ca-certificates 20260413-r0, which still trusts "emSign ECC Root CA - G3".
+# Patched: 20261020-r0.
+# Plausible's HTTP clients (Req/Finch/Mint, hackney, tls_certificate_check/locus)
+# all take their roots from :public_key.cacerts_get(), i.e. this system bundle.
+# EXCEPT hackney (tzdata autoupdate, ReferrerBlocklist via HTTPoison, Sentry,
+# ua_inspector/ref_inspector downloaders): it defaults to certifi:cacerts(),
+# which is compiled into certifi.beam. cafix-certifi.erl replaces that module so
+# it returns the OS store. The release also ships castore-1.0.16 and
+# certifi-2.15.0 priv/cacerts.pem files with the bad root; they are overwritten
+# with the patched system bundle for anything that reads them by path.
+FROM ghcr.io/plausible/community-edition:v3.2.1@sha256:33e60bfb40f2df5da00f8753b76fad04f67dba3abe6d73eb516e440e3fb62985
+USER root
+COPY cafix-certifi.erl /tmp/cafix/certifi.erl
+RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle \
+ && for f in /app/lib/castore-*/priv/cacerts.pem /app/lib/certifi-*/priv/cacerts.pem; do \
+      cp /etc/ssl/certs/ca-certificates.crt "$f"; \
+    done \
+ && cd /tmp/cafix \
+ && /app/erts-*/bin/erl -boot /app/releases/0.0.1/start_clean -boot_var RELEASE_LIB /app/lib \
+      -pa /app/lib/compiler-*/ebin -noshell \
+      -eval 'case compile:file("certifi.erl", [{outdir, "/tmp/cafix"}, report]) of {ok, _} -> halt(0); _ -> halt(1) end.' \
+ && test "$(ls -d /app/lib/certifi-*/ebin | wc -l)" = 1 \
+ && cp /tmp/cafix/certifi.beam /app/lib/certifi-*/ebin/certifi.beam \
+ && rm -rf /tmp/cafix
+USER 999

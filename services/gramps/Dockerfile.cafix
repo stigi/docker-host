@@ -1,0 +1,6 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store
+# (Debian ca-certificates >= 20250419+deb13u1 and certifi >= 2026.10.19).
+FROM ghcr.io/gramps-project/grampsweb:26.10.1@sha256:4348222c2ab2f5c53f15e7e170bd8b17db1c1691326e0e72b0d0d6df87724b94
+USER root
+RUN apt-get update && apt-get install -y --only-upgrade ca-certificates && update-ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN /venv/bin/pip install --no-cache-dir --upgrade 'certifi>=2026.10.19'

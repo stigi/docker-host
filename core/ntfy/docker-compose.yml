@@ -2,7 +2,14 @@ services:
   ntfy:
     # PINNED 2026-10-11: digest-pinned 10-month-old build -> v2.29.0. Tag plus
     # digest, so a re-pushed tag cannot swap the bytes.
-    image: binwiederhier/ntfy:v2.29.0@sha256:4c599cf0818965782f93f652bd843e92714992e84d6b88ad17713dc0951cda1f
+    # image: binwiederhier/ntfy:v2.29.0@sha256:4c599cf0818965782f93f652bd843e92714992e84d6b88ad17713dc0951cda1f
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+    # Dockerfile.cafix = the v2.29.0 digest above + Alpine ca-certificates-bundle
+    # 20261020-r0. Restore the `image:` line above (or a newer ntfy built after
+    # 2026-10-20) and drop build/pull_policy once upstream ships a fixed store.
+    build: {context: ., dockerfile: Dockerfile.cafix}
+    image: ntfy-ntfy:cafix
+    pull_policy: build
     container_name: ntfy
     restart: unless-stopped
     environment:

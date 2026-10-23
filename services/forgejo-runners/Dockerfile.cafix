@@ -1,0 +1,7 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+# data.forgejo.org/forgejo/runner:13 (13.2.0) was built 2026-09-18 with
+# ca-certificates-bundle 20260909; upgrade to 20261020-r0.
+FROM data.forgejo.org/forgejo/runner:13.2.0@sha256:ca3d5eea46004789a175d1369eec6829d3ea9bfbe2011a06625b4bdaa55f7552
+USER root
+RUN apk upgrade --no-cache ca-certificates-bundle
+USER 1000:1000

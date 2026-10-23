@@ -1,0 +1,15 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+# v1.21.1 (2026-10-21) ships the fixed store, but 1.21.0 has breaking changes
+# (loki.write WAL needs --stability.level=experimental, tenant label dropped
+# from loki_write_* metrics, kafka/signaltometrics defaults). None of these are
+# used by config.alloy, so 1.21.1 should be a drop-in; until that bump is done
+# deliberately, upgrade the Ubuntu CA store of the running v1.20.1 to
+# 20260816ubuntu0.24.04.1 (drops emSign ECC Root CA - G3 / AAA Certificate Services,
+# also from the hashed /etc/ssl/certs directory).
+FROM grafana/alloy:v1.20.1@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
+USER root
+RUN apt-get update \
+ && apt-get install -y --only-upgrade ca-certificates \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+# upstream image has no USER (runs as root)

@@ -1,0 +1,8 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+# flame 2.4.0 runs Node 20, which is EOL and will never get a fixed bundled store,
+# so this flag stays needed until flame moves to Node >= 22.23.4 (or flame is retired;
+# homepage replaced it on 2026-10-12). Image runs as root.
+FROM pawelmalak/flame:2.4.0@sha256:7a5edc859235486a82871eb624f03048e44f603cba42ea3f60dc7cfe60ca6b3f
+RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle
+# --use-openssl-ca replaces Node's bundled CA store with the patched system store.
+ENV NODE_OPTIONS=--use-openssl-ca

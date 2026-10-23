@@ -10,11 +10,19 @@ services:
   docker-socket-proxy:
     # PINNED 2026-10-11 to the running build (v0.5.0, same image as :latest).
     image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    # No outgoing TLS (HAProxy in front of the docker socket, internal network
+    # only); the CA mount is defence in depth, same as the other socket proxies.
     restart: unless-stopped
     networks:
       - internal
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+      # Patched shared bundle (Alpine 20261020-r0); see core/ca-bundle/README.md.
+      - ../../core/ca-bundle/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+      # /etc/ssl/certs also holds hash links (14bc7599.0 -> mozilla/emSign_ECC_Root_CA_-_G3.crt)
+      # that Go/OpenSSL CApath readers would still load; blank the source file.
+      - /dev/null:/usr/share/ca-certificates/mozilla/emSign_ECC_Root_CA_-_G3.crt:ro
     environment:
       CONTAINERS: 1
       EVENTS: 1
@@ -22,7 +30,12 @@ services:
 
   diun:
     # PINNED 2026-10-11 to the running build.
-    image: crazymax/diun:4.33.0@sha256:e324b793eb32dfb7f74d3a39421ebf090141caaadee69b8f78da63112408ee25
+    # image: crazymax/diun:4.33.0@sha256:e324b793eb32dfb7f74d3a39421ebf090141caaadee69b8f78da63112408ee25
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+    # Dockerfile.cafix = the 4.33.0 digest above + Alpine ca-certificates 20261020-r0.
+    build: {context: ., dockerfile: Dockerfile.cafix}
+    image: diun-diun:cafix
+    pull_policy: build
     restart: unless-stopped
     hostname: diun
     container_name: diun

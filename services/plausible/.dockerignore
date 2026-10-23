@@ -1,0 +1,3 @@
+# Build context for the eMudhra CA stopgap images: send nothing but what they COPY.
+*
+!cafix-certifi.erl

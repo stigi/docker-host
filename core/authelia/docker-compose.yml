@@ -2,7 +2,10 @@ services:
   authelia:
     # PINNED 2026-09-28 to the running build. Authelia is the SSO gate; an
     # unattended major here locks every protected service at once.
-    image: authelia/authelia:4.39.28
+    # 2026-10-22: digest added. The running container's image (b44a326fced1)
+    # IS this build; it was only tagged `latest` locally. Its Ubuntu 26.04 base
+    # comes from authelia/base (chiselled Ubuntu, no apt), not a mix-up.
+    image: authelia/authelia:4.39.28@sha256:bd97cff4fcbf715b5ff1f9ae286afbe6033afce385302520b0368122d43a6f54
     user: 1001:1001
     restart: always
     depends_on:
@@ -10,6 +13,11 @@ services:
       - redis
     volumes:
       - ./config:/config
+      # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
+      # Go reads this file (plus the rest of /etc/ssl/certs, which holds nothing
+      # else in this image). Remove once an authelia 4.39.x built on an
+      # authelia/base newer than 2026-10-20 is released.
+      - ../ca-bundle/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
     networks:
       - caddy
       - internal

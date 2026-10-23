@@ -1,7 +1,15 @@
 services:
   changedetection:
     # PINNED 2026-10-12: 0.60.8 -> 0.60.9, tag plus digest.
-    image: ghcr.io/dgtlmoon/changedetection.io:0.60.9@sha256:04eaae7915bad711160cb15abe160f6d3fabe98bbbd658509d4b7a654000fb2d
+    # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store
+    # Local build of 0.60.9 (pinned digest in Dockerfile.cafix) + upgraded
+    # ca-certificates + certifi. To remove: delete build/pull_policy, restore
+    # image: ghcr.io/dgtlmoon/changedetection.io:<fixed tag>@sha256:<digest>
+    build:
+      context: .
+      dockerfile: Dockerfile.cafix
+    image: changedetection-changedetection:cafix
+    pull_policy: build
     container_name: changedetection
     restart: unless-stopped
     depends_on:
@@ -29,9 +37,18 @@ services:
     # depends on this for rendering, so a major here breaks a stateful service.
     # Tag plus digest: browserless re-pushes tags (v2.38.3 was re-pushed to
     # different bytes), so the digest freezes the image.
-    image: ghcr.io/browserless/chrome:v2.57.0@sha256:f4fcb054396a0339c97be88c89a7af6106c87a2d0ab51ffdde7966a151208802
+    # 2026-10-22: v2.57.0 -> v2.57.2 (built 2026-10-21; Node 24.22.1 + Ubuntu
+    # ca-certificates 20260816ubuntu0.26.04.1) for the eMudhra CA compromise.
+    image: ghcr.io/browserless/chrome:v2.57.2@sha256:57eebdb0314a35065023f6339a70aad329919dea5ef6e91ab11cf24955349d6a
     container_name: changedetection-browserless-chrome
     restart: unless-stopped
+    volumes:
+      # STOPGAP eMudhra CA (2026-10-22): Chrome uses its own Chrome Root Store, which
+      # still trusted the eMudhra chain (direct emudhra test host loaded with 200).
+      # Enterprise policy CADistrustedCertificates distrusts: EM DV TLS CA - G3B (both
+      # the emSign- and AAA-issued certs), emSign Root TLS CA - G3, emSign ECC Root
+      # CA - G3, AAA Certificate Services. Drop when Chrome's root store/CRLSet drops them.
+      - ./chrome-policies/emudhra-distrust.json:/etc/opt/chrome/policies/managed/emudhra-distrust.json:ro
     networks:
       - internal
       - egress

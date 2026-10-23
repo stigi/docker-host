@@ -1,0 +1,10 @@
+# STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store
+# (a cobalt image built after 2026-10-20 with Alpine ca-certificates-bundle
+# >= 20261020-r0 and Node >= 24.22.1). Image user is `node`; compose sets user 1001.
+FROM ghcr.io/imputnet/cobalt:11.7.1@sha256:63186dd68afd57ce3bb1f62cc4c139f5fa95b9c3e87a3cf5c6e4c7a570523f62
+USER root
+RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle
+USER node
+# Node 24.14.1's bundled CA store still trusts emSign ECC Root CA - G3.
+# --use-openssl-ca replaces it with the patched system store (--use-system-ca only adds to it).
+ENV NODE_OPTIONS=--use-openssl-ca
