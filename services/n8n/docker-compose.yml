@@ -25,7 +25,13 @@ services:
     # syntax, and the webhook returning 200 after the upgrade exercises it.
     # PINNED 2026-10-12: 2.41.3 -> 2.43.4, tag plus digest. From docker.io: same
     # images, but docker.n8n.io kept timing out and rate-limiting (429).
-    image: docker.io/n8nio/n8n:2.43.4@sha256:c34ee9107a42b837e25cec0c8a927ab90a45b776aa2ccbf15e5b9cda466fad2c
+    # PINNED 2026-10-23: 2.43.4 -> 2.44.6 for the eMudhra CA compromise
+    # (disclosed 2026-10-20): 2.44.6 ships Node 26.12.1 and Alpine
+    # ca-certificates 20261020, both distrusting "emSign ECC Root CA - G3", so
+    # the Code node task runner is covered too (the --use-openssl-ca stopgap
+    # never reached it). Runs DB migrations; volume backed up first to
+    # /home/docker-host/backups/n8n-storage-pre-2.44.6.tgz.
+    image: docker.io/n8nio/n8n:2.44.6@sha256:d02752c6ab446ae9db8deec2f9cc887c378f77cdcad31650814df936b7386dfb
     user: 1000:1001
     restart: always
     networks:
@@ -90,26 +96,9 @@ services:
       # (INSTANCE_AI_BRAVE_SEARCH_API_KEY); self-hosting searxng keeps the
       # assistant's queries off a third party and costs nothing per query.
       - N8N_INSTANCE_AI_SEARXNG_URL=http://searxng:8080
-      # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store.
-      # 2.43.4 runs Node 26.7.0, whose BUNDLED store trusts "emSign ECC Root CA -
-      # G3". --use-openssl-ca replaces the bundled store with the (patched, see
-      # volumes) system store; --use-system-ca would NOT help, it only ADDS the
-      # system store on Linux (verified: still TRUSTED with it). The fixed
-      # images (2.44.6 stable / 2.45.2 beta, Node 26.12.1, Alpine 20261020)
-      # carry DB migrations, so they wait for an explicit go-ahead.
-      # Caveat: n8n spawns the internal JS task runner with a scrubbed env, so
-      # this flag does not reach the Code node runner process.
-      # Remove this line and the three stopgap mounts below with the upgrade.
-      - NODE_OPTIONS=--use-openssl-ca
     volumes:
       - n8n_storage:/home/node/.n8n
       - ./with-expanded-env.sh:/with-expanded-env.sh
-      # STOPGAP eMudhra CA (2026-10-22): the image has no apk binary, so mount
-      # the patched bundle (cert.pem is a symlink to it), and blank the emSign
-      # G3 PEM that the hashed CApath link 14bc7599.0 resolves to -- OpenSSL
-      # (and so --use-openssl-ca) also consults /etc/ssl/certs as a directory.
-      - ../../core/ca-bundle/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
-      - /dev/null:/usr/share/ca-certificates/mozilla/emSign_ECC_Root_CA_-_G3.crt:ro
     entrypoint: ["/with-expanded-env.sh", "tini", "--", "/docker-entrypoint.sh"]
     labels:
       caddy_0: n8n.ullrich.is
