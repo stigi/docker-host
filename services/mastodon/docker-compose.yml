@@ -2,7 +2,7 @@
 
 services:
   web:
-    image: ghcr.io/mastodon/mastodon:v4.7.3@sha256:7d82164ff7304362787dd2c301b4e18a5f3a3ed7bf30e421b2693e57c3ccebb9
+    image: ghcr.io/mastodon/mastodon:v4.7.4@sha256:8cbc9c9ffa595c4ced3854b63b8f173251be710f9bbf2d369926023c19666311
     user: 991:1001
     restart: unless-stopped
     env_file: .env
@@ -35,18 +35,10 @@ services:
       flame.url: https://social.ullrich.is
 
   streaming:
-    # 2026-10-22 eMudhra CA: upstream re-push of v4.7.3 (built 2026-10-21) has the
-    # fixed Debian CA store, but its Node 24.22.0 bundled store still trusts emSign.
-    image: ghcr.io/mastodon/mastodon-streaming:v4.7.3@sha256:770f2e1f734fd0ed69628292638211f909eb87769f73db026c36f484ad3c6bd6
+    image: ghcr.io/mastodon/mastodon-streaming:v4.7.4@sha256:b896be8bc93db513695c3ebac8442c09453065ab1be06dfc49fe3c16a91c825c
     user: 991:1001
     restart: unless-stopped
     env_file: .env
-    environment:
-      # STOPGAP eMudhra CA (2026-10-22): drop when upstream ships fixed CA store
-      # (image with Node >= 24.22.1). Makes Node use the (fixed) OpenSSL/system
-      # store instead of its bundled one. --use-system-ca does NOT work here: on
-      # Linux it only adds the system store on top of the bundled one.
-      NODE_OPTIONS: --use-openssl-ca
     secrets: [SECRET_KEY_BASE, OTP_SECRET, VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, DB_PASS, REDIS_PASSWORD, SMTP_PASSWORD, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY, ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT, ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY, OTEL_EXPORTER_OTLP_HEADERS]
     volumes:
       - ./with-expanded-env.sh:/with-expanded-env.sh
@@ -68,7 +60,7 @@ services:
       caddy.handle.reverse_proxy: "{{upstreams 4000}}"
 
   sidekiq:
-    image: ghcr.io/mastodon/mastodon:v4.7.3@sha256:7d82164ff7304362787dd2c301b4e18a5f3a3ed7bf30e421b2693e57c3ccebb9
+    image: ghcr.io/mastodon/mastodon:v4.7.4@sha256:8cbc9c9ffa595c4ced3854b63b8f173251be710f9bbf2d369926023c19666311
     user: 991:1001
     restart: unless-stopped
     env_file: .env
