@@ -7,10 +7,12 @@
 ## once the TLS-RPT reports are clean.
 services:
   mta-sts:
-    # PINNED 2026-10-22, tag plus digest (was the floating nginx:alpine, running
-    # 1.31.6). This build (2026-10-21) ships Alpine ca-certificates 20261020-r0
-    # without emSign ECC Root CA - G3 / AAA (eMudhra compromise).
-    image: nginx:1.31.8-alpine@sha256:e2d97c2b8c016f12c2f1a27d095685063b2f281c4edf2babfde6001cf4fb77a8
+    # PINNED 2026-11-20, tag plus digest. 1.31.9 fixes CVE-2026-123634 (resolver
+    # use-after-free; this config has no proxy, SSI or mirror, so the update is a
+    # precaution). History: floating nginx:alpine (1.31.6) until 2026-10-22, then
+    # 1.31.8. This build (2026-11-18) ships the same Alpine ca-certificates
+    # 20261020-r0, without emSign ECC Root CA - G3 / AAA (eMudhra compromise).
+    image: nginx:1.31.9-alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
     restart: always
     volumes:
       - ./site:/usr/share/nginx/html:ro
